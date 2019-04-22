@@ -30,7 +30,7 @@ const execa = require('execa');
 
 var prebid = require('./package.json');
 var dateString = 'Updated : ' + (new Date()).toISOString().substring(0, 10);
-var banner = '/* <%= prebid.name %> v<%= prebid.version %>\n' + dateString + ' */\n';
+var banner = '/* <%= prebid.name %> v<%= prebid.version %> NewsIQ\n' + dateString + ' */\n';
 var port = 9999;
 const mockServerPort = 4444;
 const host = argv.host ? argv.host : 'localhost';
