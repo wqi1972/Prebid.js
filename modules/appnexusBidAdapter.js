@@ -1,4 +1,5 @@
 import {
+  logDetails,
   createTrackPixelHtml,
   deepAccess,
   deepClone,
@@ -23,6 +24,7 @@ import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {ADPOD, BANNER, NATIVE, VIDEO} from '../src/mediaTypes.js';
 import {find, includes} from '../src/polyfill.js';
 import {INSTREAM, OUTSTREAM} from '../src/video.js';
+import CONSTANTS from '../src/constants.json';
 import {getStorageManager} from '../src/storageManager.js';
 import {bidderSettings} from '../src/bidderSettings.js';
 import {hasPurpose1Consent} from '../src/utils/gpdr.js';
@@ -362,6 +364,9 @@ export const spec = {
    */
   interpretResponse: function (serverResponse, { bidderRequest }) {
     serverResponse = serverResponse.body;
+    logDetails('interpretResponse for: ' + bidderRequest.bidderCode);
+    logDetails(bidderRequest);
+    logDetails(serverResponse);
     const bids = [];
     if (!serverResponse || serverResponse.error) {
       let errorMessage = `in response for ${bidderRequest.bidderCode} adapter`;
@@ -383,6 +388,7 @@ export const spec = {
         }
       });
     }
+    logDetails(bids);
 
     if (serverResponse.debug && serverResponse.debug.debug_info) {
       let debugHeader = 'AppNexus Debug Auction for Prebid\n\n'
@@ -566,6 +572,12 @@ function newBid(serverBid, rtbBid, bidderRequest) {
     cpm: rtbBid.cpm,
     creativeId: rtbBid.creative_id,
     dealId: rtbBid.deal_id,
+    dealPriority: rtbBid.deal_priority,
+    advertiserId: rtbBid.advertiser_id,
+    brandCategoryId: rtbBid.brand_category_id,
+    buyerMemberId: rtbBid.buyer_member_id,
+    mediaTypeId: rtbBid.media_type_id,
+    mediaSubtypeId: rtbBid.media_subtype_id,
     currency: 'USD',
     netRevenue: true,
     ttl: 300,
@@ -778,6 +790,11 @@ function bidToTag(bid) {
   }
   if (bid.params.external_imp_id) {
     tag.external_imp_id = bid.params.external_imp_id;
+  }
+  if (bid.bidder === CONSTANTS.BIDDERS.NEWSIQ) {
+    tag.external_imp_id = bid.bidId;
+    // passing bid ID to NewsConnect bidding adapter, this is not for auction but for reporting purpose. The value set in external_imp_id
+    // will show up as standard_feed.external_request_id
   }
 
   const auKeywords = getANKewyordParamFromMaps(convertKeywordStringToANMap(deepAccess(bid, 'ortb2Imp.ext.data.keywords')), bid.params?.keywords);
