@@ -28,9 +28,11 @@ module.exports = (function () {
    * @private
    */
   function _dispatch(eventString, args) {
-    utils.logMessage('Emitting event for: ' + eventString);
-
     var eventPayload = args[0] || {};
+    let message = 'Emitting event for: ' + eventString;
+    if (eventPayload.bidder || eventPayload.bidderCode) message += ", bidder: " + (eventPayload.bidder || eventPayload.bidderCode);
+    utils.logMessage(message);
+
     var idPath = idPaths[eventString];
     var key = eventPayload[idPath];
     var event = _handlers[eventString] || { que: [] };

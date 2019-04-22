@@ -14,6 +14,7 @@ import { adunitCounter } from './adUnits.js';
 import { executeRenderer, isRendererRequired } from './Renderer.js';
 import { createBid } from './bidfactory.js';
 import { storageCallbacks } from './storageManager.js';
+import { uspDataHandler, gdprDataHandler } from '../src/adapterManager.js';
 
 const $$PREBID_GLOBAL$$ = getGlobal();
 const CONSTANTS = require('./constants.json');
@@ -207,6 +208,36 @@ $$PREBID_GLOBAL$$.getAdserverTargetingForAdUnitCodeStr = function (adunitCode) {
   } else {
     utils.logMessage('Need to call getAdserverTargetingForAdUnitCodeStr with adunitCode');
   }
+};
+
+/**
+ * This function returns the bid requested
+ * @alias module:pbjs.getBidsRequested
+ * @return {Object}            map | object that contains the bidsRequested
+ */
+$$PREBID_GLOBAL$$.getBidsRequested = function () {
+  utils.logInfo('Invoking $$PREBID_GLOBAL$$.getBidsRequested', arguments);
+  return auctionManager.getBidsRequested();
+};
+
+/**
+ * This function returns the USP consent data
+ * @alias module:pbjs.getUSPConsentData
+ * @return {Object}            map | object that contains the usp consent data
+ */
+$$PREBID_GLOBAL$$.getUSPConsentData = function () {
+  utils.logInfo('Invoking $$PREBID_GLOBAL$$.getUSPConsentData', arguments);
+  return uspDataHandler.getConsentData();
+};
+
+/**
+ * This function returns the USP consent data
+ * @alias module:pbjs.getGDPRConsentData
+ * @return {Object}            map | object that contains the gdpr consent data
+ */
+$$PREBID_GLOBAL$$.getGDPRConsentData = function () {
+  utils.logInfo('Invoking $$PREBID_GLOBAL$$.getGDPRConsentData', arguments);
+  return gdprDataHandler.getConsentData();
 };
 
 /**
