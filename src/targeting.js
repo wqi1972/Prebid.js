@@ -417,6 +417,7 @@ export function newTargeting(auctionManager) {
   function getWinningBidTargeting(adUnitCodes, bidsReceived) {
     let winners = targeting.getWinningBids(adUnitCodes, bidsReceived);
     let standardKeys = getStandardKeys();
+    let domain = window.prebidDomain || 'unknown';
 
     winners = winners.map(winner => {
       return {
@@ -435,6 +436,8 @@ export function newTargeting(auctionManager) {
             }
             return [...acc, targeting];
           }, [])
+          .concat({hb_auction_id: [winner.auctionId]})
+          .concat({hb_domain: [domain]})
       };
     });
 

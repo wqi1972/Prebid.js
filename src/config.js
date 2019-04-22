@@ -10,6 +10,7 @@ const utils = require('./utils');
 const CONSTANTS = require('./constants');
 
 const DEFAULT_DEBUG = (parseQS(window.location.search)[CONSTANTS.DEBUG_MODE] || '').toUpperCase() === 'TRUE';
+const DEFAULT_DETAILDEBUG = (parseQS(window.location.search)[CONSTANTS.DEBUG_MODE] || '').toUpperCase() === 'DETAILS';
 const DEFAULT_BIDDER_TIMEOUT = 3000;
 const DEFAULT_PUBLISHER_DOMAIN = window.location.origin;
 const DEFAULT_ENABLE_SEND_ALL_BIDS = true;
@@ -54,12 +55,16 @@ export function newConfig() {
     defaults = {};
     let newConfig = {
       // `debug` is equivalent to legacy `pbjs.logging` property
-      _debug: DEFAULT_DEBUG,
+      _debug: DEFAULT_DEBUG || DEFAULT_DETAILDEBUG,
       get debug() {
         return this._debug;
       },
       set debug(val) {
         this._debug = val;
+      },
+      _detailDebug: DEFAULT_DETAILDEBUG,
+      get detailDebug() {
+        return this._detailDebug;
       },
 
       // default timeout for all bids

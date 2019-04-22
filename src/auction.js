@@ -197,6 +197,7 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
 
     let bidRequests = adapterManager.makeBidRequests(_adUnits, _auctionStart, _auctionId, _timeout, _labels);
     utils.logInfo(`Bids Requested for Auction with id: ${_auctionId}`, bidRequests);
+    utils.logDetails(JSON.stringify(bidRequests, null, 4));
     bidRequests.forEach(bidRequest => {
       addBidRequests(bidRequest);
     });
@@ -210,8 +211,6 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
       let call = {
         bidRequests,
         run: () => {
-          startAuctionTimer();
-
           _auctionStatus = AUCTION_IN_PROGRESS;
 
           events.emit(CONSTANTS.EVENTS.AUCTION_INIT, getProperties());
@@ -246,6 +245,8 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
               }
             }
           }, _timeout, onTimelyResponse);
+
+          startAuctionTimer();
         }
       };
 
@@ -578,6 +579,7 @@ export function getStandardBidderSettings(mediaType, bidderCode) {
       createKeyVal(TARGETING_KEYS.PRICE_BUCKET, getPriceByGranularity(granularity)),
       createKeyVal(TARGETING_KEYS.SIZE, 'size'),
       createKeyVal(TARGETING_KEYS.DEAL, 'dealId'),
+      createKeyVal(TARGETING_KEYS.DEALPRIORTY, 'dealPriority'),
       createKeyVal(TARGETING_KEYS.SOURCE, 'source'),
       createKeyVal(TARGETING_KEYS.FORMAT, 'mediaType'),
     ]
@@ -659,7 +661,8 @@ function setKeys(keyValues, bidderSettings, custBidObj) {
 
     if (
       ((typeof bidderSettings.suppressEmptyKeys !== 'undefined' && bidderSettings.suppressEmptyKeys === true) ||
-      key === CONSTANTS.TARGETING_KEYS.DEAL) && // hb_deal is suppressed automatically if not set
+      key === CONSTANTS.TARGETING_KEYS.DEAL ||
+      key === CONSTANTS.TARGETING_KEYS.DEALPRIORTY) && // hb_deal is suppressed automatically if not set
       (
         utils.isEmptyStr(value) ||
         value === null ||
@@ -671,6 +674,13 @@ function setKeys(keyValues, bidderSettings, custBidObj) {
       keyValues[key] = value;
     }
   });
+
+  if (keyValues[CONSTANTS.TARGETING_KEYS.DEAL]) {
+    keyValues[CONSTANTS.TARGETING_KEYS.DEALBIDDER] = keyValues[CONSTANTS.TARGETING_KEYS.BIDDER];
+    if ((keyValues[CONSTANTS.TARGETING_KEYS.DEALBIDDER] === CONSTANTS.BIDDERS.NEWSIQ) && (keyValues[CONSTANTS.TARGETING_KEYS.DEALPRIORTY] === 10)) {
+      keyValues[CONSTANTS.TARGETING_KEYS.DEALBIDDER] = CONSTANTS.BIDDERS.NEWSIQPRIORITYDEAL;
+    }
+  }
 
   return keyValues;
 }

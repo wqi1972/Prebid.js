@@ -150,6 +150,16 @@ $$PREBID_GLOBAL$$.getAdserverTargetingForAdUnitCodeStr = function (adunitCode) {
 };
 
 /**
+ * This function returns the bid responses at the given moment.
+ * @alias module:pbjs.getBidsRequested
+ * @return {Object}            map | object that contains the bidsRequested
+ */
+$$PREBID_GLOBAL$$.getBidsRequested = function () {
+  utils.logInfo('Invoking $$PREBID_GLOBAL$$.getBidsRequested', arguments);
+  return auctionManager.getBidsRequested();
+};
+
+/**
  * This function returns the query string targeting parameters available at this moment for a given ad unit. Note that some bidder's response may not have been received if you call this function too quickly after the requests are sent.
  * @param adUnitCode {string} adUnitCode to get the bid responses for
  * @alias module:pbjs.getAdserverTargetingForAdUnitCode

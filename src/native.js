@@ -169,7 +169,7 @@ export function getNativeTargeting(bid, bidReq) {
     }
 
     if (key && value) {
-      keyValues[key] = value;
+      keyValues[key] = escape(value);
     }
   });
 
