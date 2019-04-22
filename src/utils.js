@@ -305,6 +305,12 @@ export function prefixLog(prefix) {
   }
 }
 
+export function logDetails() {
+  if (detailDebugTurnedOn() && consoleInfoExists) {
+    console.error.apply(console, decorateLog(arguments, 'DETAILS:'));
+  }
+}
+
 function decorateLog(args, prefix) {
   args = [].slice.call(args);
   let bidder = config.getCurrentBidder();
@@ -324,6 +330,10 @@ function decorateLog(args, prefix) {
 
 export function hasConsoleLogger() {
   return consoleLogExists;
+}
+
+export function detailDebugTurnedOn() {
+  return !!config.getConfig('detailDebug');
 }
 
 export function debugTurnedOn() {
@@ -740,8 +750,16 @@ export const getOldestHighestCpmBid = getHighestCpmCallback('responseTimestamp',
 // Use case for tie: https://github.com/prebid/Prebid.js/issues/2539
 export const getLatestHighestCpmBid = getHighestCpmCallback('responseTimestamp', (previous, current) => previous < current);
 
+function isNewsIQDeal(bid) {
+  return (bid && bid.adserverTargeting && (bid.adserverTargeting.hb_deal_bidder === CONSTANTS.BIDDERS.NEWSIQPRIORITYDEAL));
+}
+
 function getHighestCpmCallback(useTieBreakerProperty, tieBreakerCallback) {
   return (previous, current) => {
+    if (!(isNewsIQDeal(previous) && isNewsIQDeal(current))) {
+      if (isNewsIQDeal(previous)) return previous;
+      if (isNewsIQDeal(current)) return current;
+    }
     if (previous.cpm === current.cpm) {
       return tieBreakerCallback(previous[useTieBreakerProperty], current[useTieBreakerProperty]) ? current : previous;
     }
