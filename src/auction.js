@@ -58,7 +58,7 @@
  */
 
 import {
-  flatten, timestamp, adUnitsFilter, deepAccess, getValue, parseUrl, generateUUID,
+  flatten, timestamp, adUnitsFilter, deepAccess, getValue, parseUrl, generateUUID, logDetails,
   logMessage, bind, logError, logInfo, logWarn, isEmpty, _each, isFn, isEmptyStr
 } from './utils.js';
 import { getPriceBucketString } from './cpmBucketManager.js';
@@ -218,6 +218,7 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
 
     let bidRequests = adapterManager.makeBidRequests(_adUnits, _auctionStart, _auctionId, _timeout, _labels);
     logInfo(`Bids Requested for Auction with id: ${_auctionId}`, bidRequests);
+    logDetails(JSON.stringify(bidRequests, null, 4));
 
     if (bidRequests.length < 1) {
       logWarn('No valid bid requests returned for auction');
@@ -243,8 +244,6 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
     let call = {
       bidRequests,
       run: () => {
-        startAuctionTimer();
-
         _auctionStatus = AUCTION_IN_PROGRESS;
 
         events.emit(CONSTANTS.EVENTS.AUCTION_INIT, getProperties());
@@ -274,6 +273,8 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
             }
           }
         }, _timeout, onTimelyResponse);
+
+          startAuctionTimer();
       }
     };
 
@@ -692,6 +693,7 @@ function defaultAdserverTargeting() {
     createKeyVal(TARGETING_KEYS.PRICE_BUCKET, getPriceByGranularity()),
     createKeyVal(TARGETING_KEYS.SIZE, 'size'),
     createKeyVal(TARGETING_KEYS.DEAL, 'dealId'),
+      createKeyVal(TARGETING_KEYS.DEALPRIORTY, 'dealPriority'),
     createKeyVal(TARGETING_KEYS.SOURCE, 'source'),
     createKeyVal(TARGETING_KEYS.FORMAT, 'mediaType'),
     createKeyVal(TARGETING_KEYS.ADOMAIN, getAdvertiserDomain()),
@@ -757,7 +759,7 @@ export function getKeyValueTargetingPairs(bidderCode, custBidObj, {index = aucti
   }
 
   // set native key value targeting
-  if (custBidObj['native']) {
+  if (custBidObj['native'] && (!config.getConfig('targetingControls.skipNativeTargeting'))) {
     keyValues = Object.assign({}, keyValues, getNativeTargeting(custBidObj));
   }
 
@@ -786,7 +788,8 @@ function setKeys(keyValues, bidderSettings, custBidObj, bidReq) {
 
     if (
       ((typeof bidderSettings.suppressEmptyKeys !== 'undefined' && bidderSettings.suppressEmptyKeys === true) ||
-      key === CONSTANTS.TARGETING_KEYS.DEAL) && // hb_deal is suppressed automatically if not set
+      key === CONSTANTS.TARGETING_KEYS.DEAL ||
+      key === CONSTANTS.TARGETING_KEYS.DEALPRIORTY) && // hb_deal is suppressed automatically if not set
       (
         isEmptyStr(value) ||
         value === null ||
@@ -798,6 +801,13 @@ function setKeys(keyValues, bidderSettings, custBidObj, bidReq) {
       keyValues[key] = value;
     }
   });
+
+  if (keyValues[CONSTANTS.TARGETING_KEYS.DEAL]) {
+    keyValues[CONSTANTS.TARGETING_KEYS.DEALBIDDER] = keyValues[CONSTANTS.TARGETING_KEYS.BIDDER];
+    if ((keyValues[CONSTANTS.TARGETING_KEYS.DEALBIDDER] === CONSTANTS.BIDDERS.NEWSIQ) && (keyValues[CONSTANTS.TARGETING_KEYS.DEALPRIORTY] === 10)) {
+      keyValues[CONSTANTS.TARGETING_KEYS.DEALBIDDER] = CONSTANTS.BIDDERS.NEWSIQPRIORITYDEAL;
+    }
+  }
 
   return keyValues;
 }
