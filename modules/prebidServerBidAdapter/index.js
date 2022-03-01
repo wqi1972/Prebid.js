@@ -722,7 +722,10 @@ Object.assign(ORTB2.prototype, {
 
       const imp = { ...adUnit.ortb2Imp, id: impressionId, ext, secure: s2sConfig.secure };
 
-      const ortb2 = {...deepAccess(adUnit, 'ortb2Imp.ext.data')};
+      //const ortb2 = {...deepAccess(adUnit, 'ortb2Imp.ext.data')};
+      const ortb2 = {};
+      delete imp.ext.data;
+      delete imp.ext.gpid;
       Object.keys(ortb2).forEach(prop => {
         /**
           * Prebid AdSlot
