@@ -1,21 +1,20 @@
 import ProtoBuf from '../../node_modules/protobufjs/dist/protobuf-light.min.js';
-const protoSpec = require('./log-prebid-events.json');
+//const protoSpec = require('./log-prebid-events.json');
 const protoSpecNewsIQ = require('./log-prebid-events-newsiq.json');
 import { ajax, debounce } from './utils';
 import { detectDeviceType } from './device-detection'
 
-const Builder = ProtoBuf.loadJson(protoSpec);
-const Analytics = Builder.build('LogPrebidEvents');
-const Auction = Analytics.Auction;
+//const Builder = ProtoBuf.loadJson(protoSpec);
+//const Analytics = Builder.build('LogPrebidEvents');
+//const Auction = Analytics.Auction;
 
 const BuilderNewsIQ = ProtoBuf.loadJson(protoSpecNewsIQ);
 const AnalyticsNewsIQ = BuilderNewsIQ.build('LogPrebidEventsNewsIQ');
 const AuctionNewsIQ = AnalyticsNewsIQ.Auction;
 
-const url = 'https://rb.adnxs.com/pack?log=log_prebid_events&format=protobuf';
+//const url = 'https://rb.adnxs.com/pack?log=log_prebid_events&format=protobuf';
 const NewsIQUrlProduction = 'https://log.ncaudienceexchange.com/pb/';  // production analytics end point
 const NewsIQUrlTest = 'https://newscorp-newsiq-dev.appspot.com/pb/'; // test analytics end point
-// const url = 'http://httpbin.org/post';
 const LIMIT = 100;
 export const sendBatch = debounce(send, LIMIT);
 
@@ -70,7 +69,7 @@ function send() {
     auctions: _queue.map(log => new AuctionNewsIQ(log))
   });
 
-  const payload = new AnalyticsNewsIQ(analytics).toArrayBuffer();
+  //const payload = new AnalyticsNewsIQ(analytics).toArrayBuffer();
 
   const analyticsNewsIQ = Object.assign({}, _topLevel, {
     timestamp: Date.now(),
@@ -86,7 +85,7 @@ function send() {
     NewsIQUrl = NewsIQUrlTest;
   }
 
-  ajax(url, payload, result => logMessage('Sent Prebid Analytics:', result));
+  //ajax(url, payload, result => logMessage('Sent Prebid Analytics:', result));
   ajax(NewsIQUrl, payloadNewsIQ, result => logMessage('Sent NewsIQ Prebid Analytics:', result));
 
   // TODO: reconcile _sent queue with results from ajax request
