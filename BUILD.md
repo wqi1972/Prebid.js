@@ -1,4 +1,6 @@
 Realtor:
+gulp build --modules=appnexusBidAdapter,appnexusAnalyticsAdapter,criteoBidAdapter,ixBidAdapter,aolBidAdapter,rubiconBidAdapter,consentManagementUsp,tripleliftBidAdapter,prebidServerBidAdapter,identityLinkIdSystem,atsAnalyticsAdapter,rtdModule,permutiveRtdProvider,gptPreAuction,pubmaticBidAdapter
+
 gulp build --modules=appnexusBidAdapter,appnexusAnalyticsAdapter,criteoBidAdapter,ixBidAdapter,yahoosspBidAdapter,rubiconBidAdapter,consentManagementUsp,tripleliftBidAdapter,prebidServerBidAdapter,identityLinkIdSystem,atsAnalyticsAdapter,rtdModule,permutiveRtdProvider,gptPreAuction,pubmaticBidAdapter
 
 NYP:
@@ -15,3 +17,6 @@ gulp build --modules=appnexusBidAdapter,appnexusAnalyticsAdapter,rubiconBidAdapt
 
 BibleGateway:
 gulp build --modules=appnexusBidAdapter,appnexusAnalyticsAdapter,rubiconBidAdapter,openxBidAdapter,pubmaticBidAdapter,ixBidAdapter,brightcomBidAdapter,consentManagementUsp,gptPreAuction
+
+Knewz:
+gulp build --modules=appnexusBidAdapter,appnexusAnalyticsAdapter,rubiconBidAdapter,tripleliftBidAdapter,ixBidAdapter,criteoBidAdapter,consentManagement,gdprEnforcement,prebidServerBidAdapter,yahoosspBidAdapter,gptPreAuction
