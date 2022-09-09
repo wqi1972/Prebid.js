@@ -1,4 +1,4 @@
-import ProtoBuf from '../../node_modules/protobufjs/dist/protobuf-light.min.js';
+import ProtoBuf from 'protobufjs';
 //const protoSpec = require('./log-prebid-events.json');
 const protoSpecNewsIQ = require('./log-prebid-events-newsiq.json');
 import { ajax, debounce } from './utils';
