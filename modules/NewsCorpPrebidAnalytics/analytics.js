@@ -13,10 +13,21 @@ const AnalyticsNewsIQ = BuilderNewsIQ.build('LogPrebidEventsNewsIQ');
 const AuctionNewsIQ = AnalyticsNewsIQ.Auction;
 
 //const url = 'https://rb.adnxs.com/pack?log=log_prebid_events&format=protobuf';
-const NewsIQUrlProduction = 'https://log.ncaudienceexchange.com/pb/';  // production analytics end point
-const NewsIQUrlTest = 'https://newscorp-newsiq-dev.appspot.com/pb/'; // test analytics end point
+let NewsIQUrlProduction = 'https://log.ncaudienceexchange.com/pb/';  // production analytics end point
+let NewsIQUrlTest = 'https://newscorp-newsiq-dev.appspot.com/pb/'; // test analytics end point
+let memberId = undefined;
 const LIMIT = 100;
 export const sendBatch = debounce(send, LIMIT);
+
+export function setEndPoint(config) {
+  if (config && config.options && config.options.endpoint) {
+    NewsIQUrlProduction = config.options.endpoint;
+    NewsIQUrlTest = config.options.endpoint;    
+  }
+  if (config && config.options &&  config.options.memberId) {
+    memberId = config.options.memberId;
+  }  
+};
 
 const STATUS = {
   BID_RECEIVED: 9,
@@ -76,14 +87,14 @@ function send() {
     auctions: _queue.map(log => new AuctionNewsIQ(log))
   });
 
-  logMessage('NewsCorp analytics message:', analyticsNewsIQ);
-
   const payloadNewsIQ = new AnalyticsNewsIQ(analyticsNewsIQ).toArrayBuffer();
 
   let NewsIQUrl = NewsIQUrlProduction;
   if (isDebugDetail()) {
     NewsIQUrl = NewsIQUrlTest;
   }
+  
+  logMessage('NewsCorp analytics message:', analyticsNewsIQ, 'endpoint', NewsIQUrl);
 
   //ajax(url, payload, result => logMessage('Sent Prebid Analytics:', result));
   ajax(NewsIQUrl, payloadNewsIQ, result => logMessage('Sent NewsCorp Prebid Analytics:', result));
@@ -138,7 +149,7 @@ function auctionInit({ data }) {
     domain: window.ProgrammaticBidding.pageDomain || 'unknown',
     device: window.ProgrammaticBidding.device,
     platform: 'Prebid Web',
-    seller_member_id: data.config ? data.config.memberId : undefined,
+    seller_member_id: data.config ? data.config.memberId : memberId,
   };
 
   _queue.push({
