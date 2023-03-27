@@ -7,7 +7,7 @@
     "test": "gulp test",
     "lint": "gulp lint",
     "build": "node newscorp.build.js",
-    "prepare": "npm run build:nypost"
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
