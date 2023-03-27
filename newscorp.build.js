@@ -2,7 +2,7 @@ const { config } = require('./newscorp.conf.js');
 const { execSync } = require('child_process');
 const fs = require('fs');
 
-const buildPath = 'dist';
+const buildPath = 'prebid/dist';
 const sites = Object.keys(config);
 
 function buildBuildString(site) {
