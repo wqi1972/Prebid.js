@@ -24,7 +24,7 @@ function buildPrebid() {
     execSync(buildBuildString(site));
     fs.mkdirSync(`${buildPath}/${site}/`, { recursive: true });
     fs.renameSync(
-      `build/${buildPath}/prebid.js`,
+      `${path.resolve(__dirname)}/build/prebid.js`,
       `${buildPath}/${site}/prebid.js`
     );
   }
