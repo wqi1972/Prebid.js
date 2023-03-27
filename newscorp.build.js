@@ -22,10 +22,10 @@ function buildPrebid() {
     console.log(`building prebid for: ${site}`);
     console.log(buildPath);
     execSync(buildBuildString(site));
-    // fs.mkdirSync(`${buildPath}/${site}/`, { recursive: true });
+    fs.mkdirSync(`${buildPath}/${site}/`, { recursive: true });
     fs.renameSync(
-      `${path.resolve(__dirname)}/build/prebid.js`,
-      `${path.resolve(__dirname)}/build/prebid.${site}.js`
+      `${path.resolve(__dirname)}/build/dist/prebid.js`,
+      `${buildPath}/${site}/prebid.js`
     );
   }
 }
