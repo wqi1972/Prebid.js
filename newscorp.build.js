@@ -3,7 +3,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const buildPath = 'prebid/dist';
+const buildPath = `${path.resolve(__dirname)}/prebid/dist`;
 const sites = Object.keys(config);
 
 function buildBuildString(site) {
