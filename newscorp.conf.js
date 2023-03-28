@@ -156,4 +156,17 @@ exports.config = {
       'consentManagementUsp',
     ],
   },
+  test: {
+    modules: [
+      'appnexusBidAdapter',
+      'criteoBidAdapter',
+      'ixBidAdapter',
+      'rubiconBidAdapter',
+      'yahoosspBidAdapter',
+      'tripleliftBidAdapter',
+      'consentManagement',
+      'gdprEnforcement',
+      'gptPreAuction',
+    ],
+  },
 };
