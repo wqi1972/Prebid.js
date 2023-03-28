@@ -14,13 +14,9 @@ function buildBuildString(site) {
 }
 
 function buildPrebid() {
-  console.log('dirname', __dirname);
-  console.log('filename', __filename);
-  console.log('context', process.cwd());
   while (sites.length) {
     const site = sites.shift();
     console.log(`building prebid for: ${site}`);
-    console.log(buildPath);
     execSync(buildBuildString(site));
     fs.mkdirSync(`${buildPath}/${site}/`, { recursive: true });
     fs.renameSync(

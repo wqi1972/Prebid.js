@@ -122,6 +122,23 @@ exports.config = {
       'tripleliftBidAdapter',
     ],
   },
+  marketwatch: {
+    modules: [
+      'appnexusBidAdapter',
+      'newsCorpAnalyticsAdapter',
+      'criteoBidAdapter',
+      'ixBidAdapter',
+      'rubiconBidAdapter',
+      'yahoosspBidAdapter',
+      'tripleliftBidAdapter',
+      'openxBidAdapter',
+      'prebidServerBidAdapter',
+      'consentManagement',
+      'gdprEnforcement',
+      'gptPreAuction',
+      'consentManagementUsp',
+    ],
+  },
   barrons: {
     modules: [
       'appnexusBidAdapter',
