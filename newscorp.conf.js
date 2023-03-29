@@ -156,6 +156,19 @@ exports.config = {
       'consentManagementUsp',
     ],
   },
+  biblegateway: {
+    modules: [
+      'appnexusBidAdapter',
+      'newsCorpAnalyticsAdapter',
+      'rubiconBidAdapter',
+      'openxBidAdapter',
+      'pubmaticBidAdapter',
+      'ixBidAdapter',
+      'brightcomBidAdapter',
+      'consentManagementUsp',
+      'gptPreAuction',
+    ],
+  },
   test: {
     modules: [
       'appnexusBidAdapter',
