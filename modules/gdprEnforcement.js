@@ -39,6 +39,14 @@ const TCF2 = {
   purpose7: {id: 7, name: 'measurement'},
 };
 
+let customizePrebidId = '';
+
+const TCF2CustomVendor = {
+  1: { id: '', name: 'Store and/or access information on a device' },
+  2: { id: '', name: 'Select basic ads' },
+  7: { id: '', name: 'Measure ad performance' }
+}
+
 /*
   These rules would be used if `consentManagement.gdpr.rules` is undefined by the publisher.
 */
@@ -143,6 +151,30 @@ export function shouldEnforce(consentData, purpose, name) {
   return consentData && consentData.gdprApplies;
 }
 
+function getCustomVendorPurposeId(customVendorConsents, purposeName) {
+  try {
+    return customVendorConsents.consentedPurposes.filter(consentedPurpose => consentedPurpose.name == purposeName)[0]["_id"];
+  }
+  catch (e) {
+    return '';
+  }
+}
+
+function validateCustomPrebid(purpose, consentData) {
+  if (customizePrebidId) {
+    if (!consentData) return false;
+    const customVendorConsents = consentData.customVendorConsents;
+    if (!TCF2CustomVendor[purpose].id) {
+      TCF2CustomVendor[purpose].id = getCustomVendorPurposeId(customVendorConsents, TCF2CustomVendor[purpose].name);
+    }
+    const purposeId = TCF2CustomVendor[purpose].id;
+    return !!deepAccess(customVendorConsents, `grants.${customizePrebidId}.purposeGrants.${purposeId}`);
+  }
+  else {
+    return true;
+  }
+}
+
 /**
  * This function takes in a rule and consentData and validates against the consentData provided. Depending on what it returns,
  * the caller may decide to suppress a TCF-sensitive activity.
@@ -189,6 +221,8 @@ function gdprRule(purposeNo, getEnforcementRule, blocked = null, gvlidFallback =
     if (shouldEnforce(consentData, purposeNo, modName)) {
       const gvlid = getGvlid(params[ACTIVITY_PARAM_COMPONENT_TYPE], modName, gvlidFallback(params));
       let allow = !!validateRules(getEnforcementRule(), consentData, modName, gvlid);
+      const isPrebidAllowed = validateCustomPrebid(purposeNo, consentData);
+      allow = allow && isPrebidAllowed;
       if (!allow) {
         blocked && blocked.add(modName);
         return {allow};
@@ -263,11 +297,13 @@ export function setEnforcementConfig(config) {
     enforcementRules = rules;
   }
   strictStorageEnforcement = !!deepAccess(config, STRICT_STORAGE_ENFORCEMENT);
+  customizePrebidId = deepAccess(config, 'gdpr.customizePrebidId');
 
   purpose1Rule = find(enforcementRules, hasPurpose(1));
   purpose2Rule = find(enforcementRules, hasPurpose(2));
   purpose4Rule = find(enforcementRules, hasPurpose(4))
   purpose7Rule = find(enforcementRules, hasPurpose(7));
+
 
   if (!purpose1Rule) {
     purpose1Rule = DEFAULT_RULES[0];
