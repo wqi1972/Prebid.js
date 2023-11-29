@@ -42,9 +42,9 @@ const TCF2 = {
 let customizePrebidId = '';
 
 const TCF2CustomVendor = {
-  1: { id: '', name: 'Store and/or access information on a device' },
-  2: { id: '', name: 'Select basic ads' },
-  7: { id: '', name: 'Measure ad performance' }
+  1: { id: '', name1: 'Store and/or access information on a device', name2: 'Store and/or access information on a device' },
+  2: { id: '', name1: 'Select basic ads', name2: 'Use limited data to select advertising' },
+  7: { id: '', name1: 'Measure ad performance', name2: 'Measure advertising performance' }
 }
 
 /*
@@ -165,7 +165,11 @@ function validateCustomPrebid(purpose, consentData) {
     if (!consentData) return false;
     const customVendorConsents = consentData.customVendorConsents;
     if (!TCF2CustomVendor[purpose].id) {
-      TCF2CustomVendor[purpose].id = getCustomVendorPurposeId(customVendorConsents, TCF2CustomVendor[purpose].name);
+      let customVendorPurposeId = getCustomVendorPurposeId(customVendorConsents, TCF2CustomVendor[purpose].name1);
+      if (!customVendorPurposeId) {
+        customVendorPurposeId = getCustomVendorPurposeId(customVendorConsents, TCF2CustomVendor[purpose].name2);
+      }
+      TCF2CustomVendor[purpose].id = customVendorPurposeId;
     }
     const purposeId = TCF2CustomVendor[purpose].id;
     return !!deepAccess(customVendorConsents, `grants.${customizePrebidId}.purposeGrants.${purposeId}`);
