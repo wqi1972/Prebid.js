@@ -256,6 +256,12 @@ export function prefixLog(prefix) {
   }
 }
 
+export function logDetails() {
+  if (detailDebugTurnedOn() && consoleInfoExists) {
+    console.error.apply(console, decorateLog(arguments, "DETAILS:"));
+  }
+}
+
 function decorateLog(args, prefix) {
   args = [].slice.call(args);
   let bidder = config.getCurrentBidder();
@@ -275,6 +281,10 @@ function decorateLog(args, prefix) {
 
 export function hasConsoleLogger() {
   return consoleLogExists;
+}
+
+export function detailDebugTurnedOn() {
+  return !!config.getConfig("detailDebug");
 }
 
 export function debugTurnedOn() {
