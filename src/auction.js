@@ -74,6 +74,7 @@ import {
   logInfo,
   logMessage,
   logWarn,
+  logDetails,
   parseUrl,
   timestamp
 } from './utils.js';
@@ -267,6 +268,7 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
     let bidRequests = metrics.measureTime('requestBids.makeRequests',
       () => adapterManager.makeBidRequests(_adUnits, _auctionStart, _auctionId, _timeout, _labels, ortb2Fragments, metrics));
     logInfo(`Bids Requested for Auction with id: ${_auctionId}`, bidRequests);
+    logDetails(JSON.stringify(bidRequests, null, 4));
 
     metrics.checkpoint('callBids')
 
@@ -862,7 +864,11 @@ export function getKeyValueTargetingPairs(bidderCode, custBidObj, {index = aucti
   }
 
   // set native key value targeting
-  if (FEATURES.NATIVE && custBidObj['native']) {
+  if (
+    FEATURES.NATIVE &&
+    custBidObj["native"] &&
+    !config.getConfig("targetingControls.skipNativeTargeting")
+  ) {
     keyValues = Object.assign({}, keyValues, getNativeTargeting(custBidObj));
   }
 

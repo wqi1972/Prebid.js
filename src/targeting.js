@@ -304,6 +304,10 @@ export function newTargeting(auctionManager) {
       allowedKeys = allowedKeys || defaultKeys;
     }
 
+    if (config.getConfig("targetingControls.allowAllTargetingKeys")) {
+      allowedKeys = Object.keys(Object.assign({}, TARGETING_KEYS, NATIVE_KEYS));
+    }
+
     if (Array.isArray(allowedKeys) && allowedKeys.length > 0) {
       targeting = getAllowedTargetingKeyValues(targeting, allowedKeys);
     }
@@ -638,6 +642,7 @@ export function newTargeting(auctionManager) {
       }, []);
 
     let standardKeys = getStandardKeys();
+    let domain = (window.ProgrammaticBidding && window.ProgrammaticBidding.pageDomain) || "unknown";
 
     winners = winners.map(winner => {
       return {
@@ -656,6 +661,8 @@ export function newTargeting(auctionManager) {
             }
             return [...acc, targeting];
           }, [])
+          .concat({hb_auction_id: [winner.auctionId]})
+          .concat({hb_domain: [domain]})
       };
     });
 
