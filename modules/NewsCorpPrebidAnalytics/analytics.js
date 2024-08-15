@@ -273,13 +273,15 @@ function bidRequested({ data }) {
   });
 }
 
-function fillResponsePayload(responsePayload, data, statusCode) {
+function fillResponsePayload(msgType, data, statusCode) {
   if (excludedBidders.includes(data.bidder)) {
-    return;
+    return false;
   }
 
-  responsePayload.prebid_auction_id = data.auctionId;
-  responsePayload.ad_units = [
+  const responsePayload = {
+    msg_type: msgType,
+    prebid_auction_id: data.auctionId,
+    ad_units: [
     {
       ad_unit_code: data.adUnitCode,
       bids: [
@@ -300,8 +302,8 @@ function fillResponsePayload(responsePayload, data, statusCode) {
         },
       ],
       params: getResponseParams(data),
-    },
-  ];
+    }]
+  };
 
   if (data.cpm === 0) {
     responsePayload.ad_units[0].bids[0].status_code = STATUS.NO_BID;
@@ -310,6 +312,8 @@ function fillResponsePayload(responsePayload, data, statusCode) {
   if (data.source) {
     responsePayload.ad_units[0].bids[0].source = data.source;
   }
+
+  return responsePayload;
 }
 
 function bidResponse({ data }) {
@@ -327,12 +331,11 @@ function bidResponse({ data }) {
     logMessage("Bid Response for " + data.bidder + ":", data);
   }
 
-  const responsePayload = {
-    msg_type: MSG_TYPE.Bid_Response,
-  };
-  fillResponsePayload(responsePayload, data, STATUS.BID_RECEIVED);
+  const responsePayload = fillResponsePayload(MSG_TYPE.Bid_Response, data, STATUS.BID_RECEIVED);
 
-  _queue.push(responsePayload);
+  if (responsePayload) {
+    _queue.push(responsePayload);
+  }
 }
 
 function bidWon({ data }) {
@@ -347,13 +350,12 @@ function bidWon({ data }) {
     logMessage("Bid Won for " + data.bidder + ":", data);
   }
 
-  const bidWonPayload = {
-    msg_type: MSG_TYPE.Bid_Won,
-  };
-  fillResponsePayload(bidWonPayload, data, STATUS.BID_WON);
+  const bidWonPayload = fillResponsePayload(MSG_TYPE.Bid_Won, data, STATUS.BID_WON);
 
+  if (bidWonPayload) {
   // log "bid won" for the winning bid of a placement
-  _queue.push(bidWonPayload);
+    _queue.push(bidWonPayload);
+  }
 
   /*
   // get other bids in the auction for the placement and log "bid lost" status code
