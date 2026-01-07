@@ -44,7 +44,7 @@ import {type Metrics, newMetrics, useMetrics} from './utils/perfMetrics.js';
 import {type Defer, defer, PbPromise} from './utils/promise.js';
 import {pbYield} from './utils/yield.js';
 import {enrichFPD} from './fpd/enrichment.js';
-import {allConsent} from './consentHandler.js';
+import {allConsent, gdprDataHandler, uspDataHandler} from './consentHandler.js';
 import {
   insertLocatorFrame,
   markBidAsRendered,
@@ -69,6 +69,7 @@ import type {BidderScopedSettings, BidderSettings} from "./bidderSettings.ts";
 import {ORTB_AUDIO_PARAMS, fillAudioDefaults} from './audio.ts';
 
 import {getGlobalVarName} from "./buildOptions.ts";
+import { TCFConsentData } from '../modules/consentManagementTcf.ts';
 
 const pbjsInstance = getGlobal();
 const { triggerUserSyncs } = userSync;
@@ -486,6 +487,10 @@ declare module './prebidGlobal' {
     processQueue: typeof processQueue;
     triggerBilling: typeof triggerBilling;
     refreshPageViewId: typeof refreshPageViewId;
+    getBidderConfig: typeof config.getBidderConfig;
+    getBidsRequested: typeof getBidsRequested;
+    getUSPConsentData: typeof getUSPConsentData;
+    getGDPRConsentData: typeof getGDPRConsentData;
   }
 }
 
@@ -512,8 +517,8 @@ addApiMethod('getAdserverTargetingForAdUnitCodeStr', getAdserverTargetingForAdUn
  * @alias module:pbjs.getBidsRequested
  * @return {Object}            map | object that contains the bidsRequested
  */
-pbjsInstance.getBidsRequested = function () {
-  logInfo('Invoking $$PREBID_GLOBAL$$.getBidsRequested', arguments);
+function getBidsRequested(): any[] {
+  logInfo('Invoking PBJS.getBidsRequested', arguments);
   return auctionManager.getBidsRequested();
 };
 
@@ -522,8 +527,8 @@ pbjsInstance.getBidsRequested = function () {
  * @alias module:pbjs.getUSPConsentData
  * @return {Object}            map | object that contains the usp consent data
  */
-pbjsInstance.getUSPConsentData = function () {
-  logInfo('Invoking $$PREBID_GLOBAL$$.getUSPConsentData', arguments);
+function getUSPConsentData(): string {
+  logInfo('Invoking PBJS.getUSPConsentData', arguments);
   return uspDataHandler.getConsentData();
 };
 
@@ -532,8 +537,8 @@ pbjsInstance.getUSPConsentData = function () {
  * @alias module:pbjs.getGDPRConsentData
  * @return {Object}            map | object that contains the gdpr consent data
  */
-pbjsInstance.getGDPRConsentData = function () {
-  logInfo('Invoking $$PREBID_GLOBAL$$.getGDPRConsentData', arguments);
+function getGDPRConsentData(): TCFConsentData {
+  logInfo('Invoking PBJS.getGDPRConsentData', arguments);
   return gdprDataHandler.getConsentData();
 };
 
