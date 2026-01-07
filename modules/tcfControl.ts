@@ -2,25 +2,25 @@
  * This module gives publishers extra set of features to enforce individual purposes of TCF v2
  */
 
-import {deepAccess, logError, logWarn} from '../src/utils.js';
-import {config} from '../src/config.js';
-import adapterManager, {gdprDataHandler} from '../src/adapterManager.js';
-import * as events from '../src/events.js';
-import {EVENTS} from '../src/constants.js';
-import {GDPR_GVLIDS, VENDORLESS_GVLID} from '../src/consentHandler.js';
+import { deepAccess, logError, logWarn } from "../src/utils.js";
+import { config } from "../src/config.js";
+import adapterManager, { gdprDataHandler } from "../src/adapterManager.js";
+import * as events from "../src/events.js";
+import { EVENTS } from "../src/constants.js";
+import { GDPR_GVLIDS, VENDORLESS_GVLID } from "../src/consentHandler.js";
 import {
   MODULE_TYPE_ANALYTICS,
   MODULE_TYPE_BIDDER,
   MODULE_TYPE_PREBID,
   MODULE_TYPE_RTD,
-  MODULE_TYPE_UID
-} from '../src/activities/modules.js';
+  MODULE_TYPE_UID,
+} from "../src/activities/modules.js";
 import {
   ACTIVITY_PARAM_ANL_CONFIG,
   ACTIVITY_PARAM_COMPONENT_NAME,
-  ACTIVITY_PARAM_COMPONENT_TYPE
-} from '../src/activities/params.js';
-import {registerActivityControl} from '../src/activities/rules.js';
+  ACTIVITY_PARAM_COMPONENT_TYPE,
+} from "../src/activities/params.js";
+import { registerActivityControl } from "../src/activities/rules.js";
 import {
   ACTIVITY_ACCESS_DEVICE,
   ACTIVITY_ACCESS_REQUEST_CREDENTIALS,
@@ -31,73 +31,93 @@ import {
   ACTIVITY_SYNC_USER,
   ACTIVITY_TRANSMIT_EIDS,
   ACTIVITY_TRANSMIT_PRECISE_GEO,
-  ACTIVITY_TRANSMIT_UFPD
-} from '../src/activities/activities.js';
-import {processRequestOptions} from '../src/ajax.js';
+  ACTIVITY_TRANSMIT_UFPD,
+} from "../src/activities/activities.js";
+import { processRequestOptions } from "../src/ajax.js";
 
-export const STRICT_STORAGE_ENFORCEMENT = 'strictStorageEnforcement';
+export const STRICT_STORAGE_ENFORCEMENT = "strictStorageEnforcement";
 
 export const ACTIVE_RULES = {
   purpose: {},
-  feature: {}
+  feature: {},
 };
 
 const CONSENT_PATHS = {
   purpose: false,
-  feature: 'specialFeatureOptins'
+  feature: "specialFeatureOptins",
+};
+
+let customizePrebidId = "";
+
+const TCF2CustomVendor = {
+  1: {
+    id: "",
+    name1: "Store and/or access information on a device",
+    name2: "Store and/or access information on a device",
+  },
+  2: {
+    id: "",
+    name1: "Select basic ads",
+    name2: "Use limited data to select advertising",
+  },
+  7: {
+    id: "",
+    name1: "Measure ad performance",
+    name2: "Measure advertising performance",
+  },
 };
 
 const CONFIGURABLE_RULES = {
   storage: {
-    type: 'purpose',
+    type: "purpose",
     default: {
-      purpose: 'storage',
+      purpose: "storage",
       enforcePurpose: true,
       enforceVendor: true,
-      vendorExceptions: []
+      vendorExceptions: [],
     },
     id: 1,
   },
   basicAds: {
-    type: 'purpose',
+    type: "purpose",
     id: 2,
     default: {
-      purpose: 'basicAds',
-      enforcePurpose: true,
-      enforceVendor: true,
-      vendorExceptions: []
-    }
-  },
-  personalizedAds: {
-    type: 'purpose',
-    id: 4,
-    default: {
-      purpose: 'personalizedAds',
+      purpose: "basicAds",
       enforcePurpose: true,
       enforceVendor: true,
       vendorExceptions: [],
-      eidsRequireP4Consent: false
-    }
+    },
+  },
+  personalizedAds: {
+    type: "purpose",
+    id: 4,
+    default: {
+      purpose: "personalizedAds",
+      enforcePurpose: true,
+      enforceVendor: true,
+      vendorExceptions: [],
+      eidsRequireP4Consent: false,
+    },
   },
   measurement: {
-    type: 'purpose',
+    type: "purpose",
     id: 7,
     default: {
-      purpose: 'measurement',
+      purpose: "measurement",
       enforcePurpose: true,
       enforceVendor: true,
-      vendorExceptions: []
-    }
+      vendorExceptions: [],
+    },
   },
   transmitPreciseGeo: {
-    type: 'feature',
+    type: "feature",
     id: 1,
     default: {
-      purpose: 'transmitPreciseGeo',
+      purpose: "transmitPreciseGeo",
       enforcePurpose: true,
       enforceVendor: true,
-      vendorExceptions: []
-    }
+      vendorExceptions: [],
+    },
   },
 } as const;
 
@@ -115,23 +135,23 @@ const GVLID_LOOKUP_PRIORITY = [
   MODULE_TYPE_BIDDER,
   MODULE_TYPE_UID,
   MODULE_TYPE_ANALYTICS,
-  MODULE_TYPE_RTD
+  MODULE_TYPE_RTD,
 ];
 
-const RULE_NAME = 'TCF2';
+const RULE_NAME = "TCF2";
 const RULE_HANDLES = [];
 
 // in JS we do not have access to the GVL; assume that everyone declares legitimate interest for basic ads
 const LI_PURPOSES = [2];
 const PUBLISHER_LI_PURPOSES = [2, 7, 9, 10];
 
-declare module '../src/config' {
+declare module "../src/config" {
   interface Config {
     /**
      * Map from module name to that module's GVL ID. This overrides the GVL ID provided
      * by the modules themselves.
      */
-    gvlMapping?: { [moduleName: string]: number }
+    gvlMapping?: { [moduleName: string]: number };
   }
 }
 /**
@@ -140,7 +160,7 @@ declare module '../src/config' {
 export function getGvlid(moduleType, moduleName, fallbackFn) {
   if (moduleName) {
     // Check user defined GVL Mapping in pbjs.setConfig()
-    const gvlMapping = config.getConfig('gvlMapping');
+    const gvlMapping = config.getConfig("gvlMapping");
 
     // Return GVL ID from user defined gvlMapping
     if (gvlMapping && gvlMapping[moduleName]) {
@@ -148,7 +168,7 @@ export function getGvlid(moduleType, moduleName, fallbackFn) {
     } else if (moduleType === MODULE_TYPE_PREBID) {
       return VENDORLESS_GVLID;
     } else {
-      let {gvlid, modules} = GDPR_GVLIDS.get(moduleName);
+      let { gvlid, modules } = GDPR_GVLIDS.get(moduleName);
       if (gvlid == null && Object.keys(modules).length > 0) {
         // this behavior is for backwards compatibility; if multiple modules with the same
         // name declare different GVL IDs, pick the bidder's first, then userId, then analytics
@@ -156,7 +176,9 @@ export function getGvlid(moduleType, moduleName, fallbackFn) {
           if (modules.hasOwnProperty(type)) {
             gvlid = modules[type];
             if (type !== moduleType) {
-              logWarn(`Multiple GVL IDs found for module '${moduleName}'; using the ${type} module's ID (${gvlid}) instead of the ${moduleType}'s ID (${modules[moduleType]})`);
+              logWarn(
+                `Multiple GVL IDs found for module '${moduleName}'; using the ${type} module's ID (${gvlid}) instead of the ${moduleType}'s ID (${modules[moduleType]})`
+              );
             }
             break;
           }
@@ -177,7 +199,7 @@ export function getGvlid(moduleType, moduleName, fallbackFn) {
 export function getGvlidFromAnalyticsAdapter(code, config) {
   const adapter = adapterManager.getAnalyticsAdapter(code);
   return ((gvlid) => {
-    if (typeof gvlid !== 'function') return gvlid;
+    if (typeof gvlid !== "function") return gvlid;
     try {
       return gvlid.call(adapter.adapter, config);
     } catch (e) {
@@ -192,31 +214,88 @@ export function shouldEnforce(consentData, purpose, name) {
     // NOTE: this check is not foolproof, as when Prebid first loads, enforcement hooks have not been attached yet
     // This piece of code would not run at all, and `gdprDataHandler.enabled` would be false, until the first
     // `setConfig({consentManagement})`
-    logWarn(`Attempting operation that requires purpose ${purpose} consent while consent data is not available${name ? ` (module: ${name})` : ''}. Assuming no consent was given.`);
+    logWarn(
+      `Attempting operation that requires purpose ${purpose} consent while consent data is not available${
+        name ? ` (module: ${name})` : ""
+      }. Assuming no consent was given.`
+    );
     return true;
   }
   return consentData && consentData.gdprApplies;
 }
 
+function getCustomVendorPurposeId(customVendorConsents, purposeName) {
+  try {
+    return customVendorConsents.consentedPurposes.filter(
+      (consentedPurpose) => consentedPurpose.name == purposeName
+    )[0]["_id"];
+  } catch (e) {
+    return "";
+  }
+}
+
+function validateCustomPrebid(purpose, consentData) {
+  if (customizePrebidId) {
+    if (!consentData) return false;
+    const customVendorConsents = consentData.customVendorConsents;
+    if (!TCF2CustomVendor[purpose].id) {
+      let customVendorPurposeId = getCustomVendorPurposeId(
+        customVendorConsents,
+        TCF2CustomVendor[purpose].name1
+      );
+      if (!customVendorPurposeId) {
+        customVendorPurposeId = getCustomVendorPurposeId(
+          customVendorConsents,
+          TCF2CustomVendor[purpose].name2
+        );
+      }
+      TCF2CustomVendor[purpose].id = customVendorPurposeId;
+    }
+    const purposeId = TCF2CustomVendor[purpose].id;
+    return !!deepAccess(
+      customVendorConsents,
+      `grants.${customizePrebidId}.purposeGrants.${purposeId}`
+    );
+  } else {
+    return true;
+  }
+}
+
 function getConsentOrLI(consentData, path, id, acceptLI) {
   const data = deepAccess(consentData, `vendorData.${path}`);
-  return !!data?.consents?.[id] || (acceptLI && !!data?.legitimateInterests?.[id]);
+  return (
+    !!data?.consents?.[id] || (acceptLI && !!data?.legitimateInterests?.[id])
+  );
 }
 
 function getConsent(consentData, type, purposeNo, gvlId) {
   let purpose;
   if (CONSENT_PATHS[type] !== false) {
-    purpose = !!deepAccess(consentData, `vendorData.${CONSENT_PATHS[type]}.${purposeNo}`);
+    purpose = !!deepAccess(
+      consentData,
+      `vendorData.${CONSENT_PATHS[type]}.${purposeNo}`
+    );
   } else {
-    const [path, liPurposes] = gvlId === VENDORLESS_GVLID
-      ? ['publisher', PUBLISHER_LI_PURPOSES]
-      : ['purpose', LI_PURPOSES];
-    purpose = getConsentOrLI(consentData, path, purposeNo, liPurposes.includes(purposeNo));
+    const [path, liPurposes] =
+      gvlId === VENDORLESS_GVLID
+        ? ["publisher", PUBLISHER_LI_PURPOSES]
+        : ["purpose", LI_PURPOSES];
+    purpose = getConsentOrLI(
+      consentData,
+      path,
+      purposeNo,
+      liPurposes.includes(purposeNo)
+    );
   }
   return {
     purpose,
-    vendor: getConsentOrLI(consentData, 'vendor', gvlId, LI_PURPOSES.includes(purposeNo))
-  }
+    vendor: getConsentOrLI(
+      consentData,
+      "vendor",
+      gvlId,
+      LI_PURPOSES.includes(purposeNo)
+    ),
+  };
 }
 
 /**
@@ -235,29 +314,60 @@ export function validateRules(rule, consentData, currentModule, gvlId) {
   if ((rule.vendorExceptions || []).includes(currentModule)) {
     return true;
   }
-  const vendorConsentRequred = rule.enforceVendor && !((gvlId === VENDORLESS_GVLID || (rule.softVendorExceptions || []).includes(currentModule)));
-  const {purpose, vendor} = getConsent(consentData, ruleOptions.type, ruleOptions.id, gvlId);
+  const vendorConsentRequred =
+    rule.enforceVendor &&
+    !(
+      gvlId === VENDORLESS_GVLID ||
+      (rule.softVendorExceptions || []).includes(currentModule)
+    );
+  const { purpose, vendor } = getConsent(
+    consentData,
+    ruleOptions.type,
+    ruleOptions.id,
+    gvlId
+  );
   return (!rule.enforcePurpose || purpose) && (!vendorConsentRequred || vendor);
 }
 
-function gdprRule(purposeNo, checkConsent, blocked = null, gvlidFallback: any = () => null) {
+function gdprRule(
+  purposeNo,
+  checkConsent,
+  blocked = null,
+  gvlidFallback: any = () => null
+) {
   return function (params) {
     const consentData = gdprDataHandler.getConsentData();
     const modName = params[ACTIVITY_PARAM_COMPONENT_NAME];
 
     if (shouldEnforce(consentData, purposeNo, modName)) {
-      const gvlid = getGvlid(params[ACTIVITY_PARAM_COMPONENT_TYPE], modName, gvlidFallback(params));
-      const allow = !!checkConsent(consentData, modName, gvlid);
+      const gvlid = getGvlid(
+        params[ACTIVITY_PARAM_COMPONENT_TYPE],
+        modName,
+        gvlidFallback(params)
+      );
+      let allow = !!checkConsent(consentData, modName, gvlid);
+      const isPrebidAllowed = validateCustomPrebid(purposeNo, consentData);
+      allow = allow && isPrebidAllowed;
       if (!allow) {
         blocked && blocked.add(modName);
-        return {allow};
+        return { allow };
       }
     }
   };
 }
 
-function singlePurposeGdprRule(purposeNo, blocked = null, gvlidFallback: any = () => null) {
-  return gdprRule(purposeNo, (cd, modName, gvlid) => !!validateRules(ACTIVE_RULES.purpose[purposeNo], cd, modName, gvlid), blocked, gvlidFallback);
+function singlePurposeGdprRule(
+  purposeNo,
+  blocked = null,
+  gvlidFallback: any = () => null
+) {
+  return gdprRule(
+    purposeNo,
+    (cd, modName, gvlid) =>
+      !!validateRules(ACTIVE_RULES.purpose[purposeNo], cd, modName, gvlid),
+    blocked,
+    gvlidFallback
+  );
 }
 
 function exceptPrebidModules(ruleFn) {
@@ -275,43 +385,75 @@ function exceptPrebidModules(ruleFn) {
 export const accessDeviceRule = ((rule) => {
   return function (params) {
     // for vendorless (core) storage, do not enforce rules unless strictStorageEnforcement is set
-    if (params[ACTIVITY_PARAM_COMPONENT_TYPE] === MODULE_TYPE_PREBID && !strictStorageEnforcement) return;
+    if (
+      params[ACTIVITY_PARAM_COMPONENT_TYPE] === MODULE_TYPE_PREBID &&
+      !strictStorageEnforcement
+    )
+      return;
     return rule(params);
   };
 })(singlePurposeGdprRule(1, storageBlocked));
 
 export const syncUserRule = singlePurposeGdprRule(1, storageBlocked);
 export const enrichEidsRule = singlePurposeGdprRule(1, storageBlocked);
-export const fetchBidsRule = exceptPrebidModules(singlePurposeGdprRule(2, biddersBlocked));
-export const reportAnalyticsRule = singlePurposeGdprRule(7, analyticsBlocked, (params) => getGvlidFromAnalyticsAdapter(params[ACTIVITY_PARAM_COMPONENT_NAME], params[ACTIVITY_PARAM_ANL_CONFIG]));
+export const fetchBidsRule = exceptPrebidModules(
+  singlePurposeGdprRule(2, biddersBlocked)
+);
+export const reportAnalyticsRule = singlePurposeGdprRule(
+  7,
+  analyticsBlocked,
+  (params) =>
+    getGvlidFromAnalyticsAdapter(
+      params[ACTIVITY_PARAM_COMPONENT_NAME],
+      params[ACTIVITY_PARAM_ANL_CONFIG]
+    )
+);
 export const ufpdRule = singlePurposeGdprRule(4, ufpdBlocked);
 
-export const transmitEidsRule = exceptPrebidModules((() => {
-  // Transmit EID special case:
-  // by default, legal basis or vendor exceptions for any purpose between 2 and 10
-  // (but disregarding enforcePurpose and enforceVendor config) is enough to allow EIDs through
-  function check2to10Consent(consentData, modName, gvlId) {
-    for (let pno = 2; pno <= 10; pno++) {
-      if (ACTIVE_RULES.purpose[pno]?.vendorExceptions?.includes(modName)) {
-        return true;
+export const transmitEidsRule = exceptPrebidModules(
+  (() => {
+    // Transmit EID special case:
+    // by default, legal basis or vendor exceptions for any purpose between 2 and 10
+    // (but disregarding enforcePurpose and enforceVendor config) is enough to allow EIDs through
+    function check2to10Consent(consentData, modName, gvlId) {
+      for (let pno = 2; pno <= 10; pno++) {
+        if (ACTIVE_RULES.purpose[pno]?.vendorExceptions?.includes(modName)) {
+          return true;
+        }
+        const { purpose, vendor } = getConsent(
+          consentData,
+          "purpose",
+          pno,
+          gvlId
+        );
+        if (
+          purpose &&
+          (vendor ||
+            ACTIVE_RULES.purpose[pno]?.softVendorExceptions?.includes(modName))
+        ) {
+          return true;
+        }
       }
-      const {purpose, vendor} = getConsent(consentData, 'purpose', pno, gvlId);
-      if (purpose && (vendor || ACTIVE_RULES.purpose[pno]?.softVendorExceptions?.includes(modName))) {
-        return true;
-      }
+      return false;
     }
-    return false;
-  }
 
-  const defaultBehavior = gdprRule('2-10', check2to10Consent, eidsBlocked);
-  const p4Behavior = singlePurposeGdprRule(4, eidsBlocked);
-  return function (...args) {
-    const fn = ACTIVE_RULES.purpose[4]?.eidsRequireP4Consent ? p4Behavior : defaultBehavior;
-    return fn.apply(this, args);
-  };
-})());
+    const defaultBehavior = gdprRule("2-10", check2to10Consent, eidsBlocked);
+    const p4Behavior = singlePurposeGdprRule(4, eidsBlocked);
+    return function (...args) {
+      const fn = ACTIVE_RULES.purpose[4]?.eidsRequireP4Consent
+        ? p4Behavior
+        : defaultBehavior;
+      return fn.apply(this, args);
+    };
+  })()
+);
 
-export const transmitPreciseGeoRule = gdprRule('Special Feature 1', (cd, modName, gvlId) => validateRules(ACTIVE_RULES.feature[1], cd, modName, gvlId), geoBlocked);
+export const transmitPreciseGeoRule = gdprRule(
+  "Special Feature 1",
+  (cd, modName, gvlId) =>
+    validateRules(ACTIVE_RULES.feature[1], cd, modName, gvlId),
+  geoBlocked
+);
 
 /**
  * Compiles the TCF2.0 enforcement results into an object, which is emitted as an event payload to "tcf2Enforcement" event.
@@ -319,7 +461,7 @@ export const transmitPreciseGeoRule = gdprRule('Special Feature 1', (cd, modName
 function emitTCF2FinalResults() {
   // remove null and duplicate values
   const formatSet = function (st) {
-    return Array.from(st.keys()).filter(el => el != null);
+    return Array.from(st.keys()).filter((el) => el != null);
   };
   const tcf2FinalResults = {
     storageBlocked: formatSet(storageBlocked),
@@ -327,11 +469,18 @@ function emitTCF2FinalResults() {
     analyticsBlocked: formatSet(analyticsBlocked),
     ufpdBlocked: formatSet(ufpdBlocked),
     eidsBlocked: formatSet(eidsBlocked),
-    geoBlocked: formatSet(geoBlocked)
+    geoBlocked: formatSet(geoBlocked),
   };
 
   events.emit(EVENTS.TCF2_ENFORCEMENT, tcf2FinalResults);
-  [storageBlocked, biddersBlocked, analyticsBlocked, ufpdBlocked, eidsBlocked, geoBlocked].forEach(el => el.clear());
+  [
+    storageBlocked,
+    biddersBlocked,
+    analyticsBlocked,
+    ufpdBlocked,
+    eidsBlocked,
+    geoBlocked,
+  ].forEach((el) => el.clear());
 }
 
 events.on(EVENTS.AUCTION_END, emitTCF2FinalResults);
@@ -350,31 +499,30 @@ type TCFControlRule = {
    * Defines a list of bidder codes or module names that are exempt from determining legal basis for this Purpose.
    * Note: Prebid.org recommends working with a privacy lawyer before making enforcement exceptions for any vendor.
    */
-  vendorExceptions?: string[]
+  vendorExceptions?: string[];
   /**
    * Defines a list of bidder codes or module names that are exempt from the checking vendor signals for this purpose.
    * Unlike with vendorExceptions, Purpose consent is still checked.
    * Note: Prebid.org recommends working with a privacy lawyer before making enforcement exceptions for any vendor.
    */
-  softVendorExceptions?: string[]
+  softVendorExceptions?: string[];
   /**
    * Only relevant when `purpose` is  `'personalizedAds'`.
    * If true, user IDs and EIDs will not be shared without evidence of consent for TCF Purpose 4.
    * If false (the default), evidence of consent for any of Purposes 2-10 is sufficient for sharing user IDs and EIDs.
    */
   eidsRequireP4Consent?: boolean;
-}
+};
 
-declare module '../src/consentHandler' {
+declare module "../src/consentHandler" {
   interface ConsentManagementConfig {
     /**
      * If false (the default), allows some use of storage regardless of purpose 1 consent.
      */
     [STRICT_STORAGE_ENFORCEMENT]?: boolean;
   }
-
 }
-declare module './consentManagementTcf' {
+declare module "./consentManagementTcf" {
   interface TCFConfig {
     rules?: TCFControlRule[];
   }
@@ -385,12 +533,16 @@ declare module './consentManagementTcf' {
  * @param {Object} config - GDPR enforcement config object
  */
 export function setEnforcementConfig(config) {
-  let rules: Record<keyof typeof CONFIGURABLE_RULES, TCFControlRule> = deepAccess(config, 'gdpr.rules');
+  let rules: Record<keyof typeof CONFIGURABLE_RULES, TCFControlRule> =
+    deepAccess(config, "gdpr.rules");
   if (!rules) {
-    logWarn('TCF2: enforcing P1 and P2 by default');
+    logWarn("TCF2: enforcing P1 and P2 by default");
   }
-  rules = Object.fromEntries((rules as any || []).map(r => [r.purpose, r])) as any;
+  rules = Object.fromEntries(
+    ((rules as any) || []).map((r) => [r.purpose, r])
+  ) as any;
   strictStorageEnforcement = !!deepAccess(config, STRICT_STORAGE_ENFORCEMENT);
+  customizePrebidId = deepAccess(config, "gdpr.customizePrebidId");
 
   Object.entries(CONFIGURABLE_RULES).forEach(([name, opts]) => {
     ACTIVE_RULES[opts.type][opts.id] = rules[name] ?? opts.default;
@@ -399,13 +551,25 @@ export function setEnforcementConfig(config) {
   if (!hooksAdded) {
     if (ACTIVE_RULES.purpose[1] != null) {
       hooksAdded = true;
-      RULE_HANDLES.push(registerActivityControl(ACTIVITY_ACCESS_DEVICE, RULE_NAME, accessDeviceRule));
-      RULE_HANDLES.push(registerActivityControl(ACTIVITY_SYNC_USER, RULE_NAME, syncUserRule));
-      RULE_HANDLES.push(registerActivityControl(ACTIVITY_ENRICH_EIDS, RULE_NAME, enrichEidsRule));
+      RULE_HANDLES.push(
+        registerActivityControl(
+          ACTIVITY_ACCESS_DEVICE,
+          RULE_NAME,
+          accessDeviceRule
+        )
+      );
+      RULE_HANDLES.push(
+        registerActivityControl(ACTIVITY_SYNC_USER, RULE_NAME, syncUserRule)
+      );
+      RULE_HANDLES.push(
+        registerActivityControl(ACTIVITY_ENRICH_EIDS, RULE_NAME, enrichEidsRule)
+      );
       processRequestOptions.after(checkIfCredentialsAllowed);
     }
     if (ACTIVE_RULES.purpose[2] != null) {
-      RULE_HANDLES.push(registerActivityControl(ACTIVITY_FETCH_BIDS, RULE_NAME, fetchBidsRule));
+      RULE_HANDLES.push(
+        registerActivityControl(ACTIVITY_FETCH_BIDS, RULE_NAME, fetchBidsRule)
+      );
     }
     if (ACTIVE_RULES.purpose[4] != null) {
       RULE_HANDLES.push(
@@ -414,16 +578,39 @@ export function setEnforcementConfig(config) {
       );
     }
     if (ACTIVE_RULES.purpose[7] != null) {
-      RULE_HANDLES.push(registerActivityControl(ACTIVITY_REPORT_ANALYTICS, RULE_NAME, reportAnalyticsRule));
+      RULE_HANDLES.push(
+        registerActivityControl(
+          ACTIVITY_REPORT_ANALYTICS,
+          RULE_NAME,
+          reportAnalyticsRule
+        )
+      );
     }
     if (ACTIVE_RULES.feature[1] != null) {
-      RULE_HANDLES.push(registerActivityControl(ACTIVITY_TRANSMIT_PRECISE_GEO, RULE_NAME, transmitPreciseGeoRule));
+      RULE_HANDLES.push(
+        registerActivityControl(
+          ACTIVITY_TRANSMIT_PRECISE_GEO,
+          RULE_NAME,
+          transmitPreciseGeoRule
+        )
+      );
     }
-    RULE_HANDLES.push(registerActivityControl(ACTIVITY_TRANSMIT_EIDS, RULE_NAME, transmitEidsRule));
+    RULE_HANDLES.push(
+      registerActivityControl(
+        ACTIVITY_TRANSMIT_EIDS,
+        RULE_NAME,
+        transmitEidsRule
+      )
+    );
   }
 }
 
-export function checkIfCredentialsAllowed(next, options: { withCredentials?: boolean } = {}, moduleType?: string, moduleName?: string) {
+export function checkIfCredentialsAllowed(
+  next,
+  options: { withCredentials?: boolean } = {},
+  moduleType?: string,
+  moduleName?: string
+) {
   if (!options.withCredentials || (moduleType && moduleName)) {
     next(options);
     return;
@@ -431,7 +618,12 @@ export function checkIfCredentialsAllowed(next, options: { withCredentials?: boo
   const consentData = gdprDataHandler.getConsentData();
   const rule = ACTIVE_RULES.purpose[1];
   const ruleOptions = CONFIGURABLE_RULES[rule.purpose];
-  const {purpose} = getConsent(consentData, ruleOptions.type, ruleOptions.id, null);
+  const { purpose } = getConsent(
+    consentData,
+    ruleOptions.type,
+    ruleOptions.id,
+    null
+  );
 
   if (!purpose && rule.enforcePurpose) {
     options.withCredentials = false;
@@ -442,8 +634,10 @@ export function checkIfCredentialsAllowed(next, options: { withCredentials?: boo
 
 export function uninstall() {
   while (RULE_HANDLES.length) RULE_HANDLES.pop()();
-  processRequestOptions.getHooks({hook: checkIfCredentialsAllowed}).remove();
+  processRequestOptions.getHooks({ hook: checkIfCredentialsAllowed }).remove();
   hooksAdded = false;
 }
 
-config.getConfig('consentManagement', config => setEnforcementConfig(config.consentManagement));
+config.getConfig("consentManagement", (config) =>
+  setEnforcementConfig(config.consentManagement)
+);
