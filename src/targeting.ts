@@ -280,6 +280,10 @@ export function newTargeting(auctionManager) {
         allowedKeys = allowedKeys || defaultKeys as any;
       }
 
+      if (config.getConfig("targetingControls.allowAllTargetingKeys")) {
+        allowedKeys = Object.keys(Object.assign({}, TARGETING_KEYS, NATIVE_KEYS));
+      }
+
       if (Array.isArray(allowedKeys) && allowedKeys.length > 0) {
         targeting = getAllowedTargetingKeyValues(targeting, allowedKeys);
       }
@@ -683,6 +687,9 @@ export function newTargeting(auctionManager) {
   function getWinningBidTargeting(bidsReceived, adUnitCodes): TargetingArray {
     const winners = targeting.getWinningBids(adUnitCodes, bidsReceived);
     const standardKeys = getStandardKeys();
+    // I wonder if we should change this, as we could have the window interface defined
+    // with the ProgrammaticBidding property on it...
+    let domain = (window as any)?.ProgrammaticBidding?.pageDomain ?? 'default'
 
     return winners.map(winner => {
       return {
@@ -701,6 +708,8 @@ export function newTargeting(auctionManager) {
             }
             return [...acc, targeting];
           }, [])
+          .concat({hb_auction_id: [winner.auctionId]})
+          .concat({hb_domain: [domain]})
       };
     });
   }

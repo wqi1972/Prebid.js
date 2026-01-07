@@ -508,6 +508,36 @@ function getAdserverTargetingForAdUnitCodeStr(adUnitCode: AdUnitCode): string {
 addApiMethod('getAdserverTargetingForAdUnitCodeStr', getAdserverTargetingForAdUnitCodeStr);
 
 /**
+ * This function returns the bid requested
+ * @alias module:pbjs.getBidsRequested
+ * @return {Object}            map | object that contains the bidsRequested
+ */
+pbjsInstance.getBidsRequested = function () {
+  logInfo('Invoking $$PREBID_GLOBAL$$.getBidsRequested', arguments);
+  return auctionManager.getBidsRequested();
+};
+
+/**
+ * This function returns the USP consent data
+ * @alias module:pbjs.getUSPConsentData
+ * @return {Object}            map | object that contains the usp consent data
+ */
+pbjsInstance.getUSPConsentData = function () {
+  logInfo('Invoking $$PREBID_GLOBAL$$.getUSPConsentData', arguments);
+  return uspDataHandler.getConsentData();
+};
+
+/**
+ * This function returns the USP consent data
+ * @alias module:pbjs.getGDPRConsentData
+ * @return {Object}            map | object that contains the gdpr consent data
+ */
+pbjsInstance.getGDPRConsentData = function () {
+  logInfo('Invoking $$PREBID_GLOBAL$$.getGDPRConsentData', arguments);
+  return gdprDataHandler.getConsentData();
+};
+
+/**
  * Return the highest cpm, unused bid for the given ad unit.
  * @param adUnitCode
  */
@@ -1166,6 +1196,7 @@ addApiMethod('getConfig', config.getAnyConfig);
 addApiMethod('readConfig', config.readAnyConfig);
 addApiMethod('mergeConfig', config.mergeConfig);
 addApiMethod('mergeBidderConfig', config.mergeBidderConfig);
+addApiMethod('getBidderConfig', config.getBidderConfig);
 addApiMethod('setConfig', config.setConfig);
 addApiMethod('setBidderConfig', config.setBidderConfig);
 
