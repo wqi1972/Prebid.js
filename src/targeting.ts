@@ -281,7 +281,7 @@ export function newTargeting(auctionManager) {
       }
 
       if (config.getConfig("targetingControls.allowAllTargetingKeys")) {
-        allowedKeys = Object.keys(Object.assign({}, TARGETING_KEYS, NATIVE_KEYS));
+        allowedKeys = Object.keys(Object.assign({}, TARGETING_KEYS)) as any;
       }
 
       if (Array.isArray(allowedKeys) && allowedKeys.length > 0) {
