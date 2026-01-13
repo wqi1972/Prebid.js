@@ -612,7 +612,6 @@ function newBid(serverBid, rtbBid, bidderRequest) {
       nodes: [{
         bsid: rtbBid.buyer_member_id.toString()
       }]};
-    }
 
     return dchain;
   }
