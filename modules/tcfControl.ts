@@ -2,25 +2,25 @@
  * This module gives publishers extra set of features to enforce individual purposes of TCF v2
  */
 
-import { deepAccess, logError, logWarn } from "../src/utils.js";
-import { config } from "../src/config.js";
-import adapterManager, { gdprDataHandler } from "../src/adapterManager.js";
-import * as events from "../src/events.js";
-import { EVENTS } from "../src/constants.js";
-import { GDPR_GVLIDS, VENDORLESS_GVLID } from "../src/consentHandler.js";
+import { deepAccess, logError, logWarn } from '../src/utils.js';
+import { config } from '../src/config.js';
+import adapterManager, { gdprDataHandler } from '../src/adapterManager.js';
+import * as events from '../src/events.js';
+import { EVENTS } from '../src/constants.js';
+import { GDPR_GVLIDS, VENDORLESS_GVLID } from '../src/consentHandler.js';
 import {
   MODULE_TYPE_ANALYTICS,
   MODULE_TYPE_BIDDER,
   MODULE_TYPE_PREBID,
   MODULE_TYPE_RTD,
   MODULE_TYPE_UID,
-} from "../src/activities/modules.js";
+} from '../src/activities/modules.js';
 import {
   ACTIVITY_PARAM_ANL_CONFIG,
   ACTIVITY_PARAM_COMPONENT_NAME,
   ACTIVITY_PARAM_COMPONENT_TYPE,
-} from "../src/activities/params.js";
-import { registerActivityControl } from "../src/activities/rules.js";
+} from '../src/activities/params.js';
+import { registerActivityControl } from '../src/activities/rules.js';
 import {
   ACTIVITY_ACCESS_DEVICE,
   ACTIVITY_ACCESS_REQUEST_CREDENTIALS,
@@ -32,10 +32,10 @@ import {
   ACTIVITY_TRANSMIT_EIDS,
   ACTIVITY_TRANSMIT_PRECISE_GEO,
   ACTIVITY_TRANSMIT_UFPD,
-} from "../src/activities/activities.js";
-import { processRequestOptions } from "../src/ajax.js";
+} from '../src/activities/activities.js';
+import { processRequestOptions } from '../src/ajax.js';
 
-export const STRICT_STORAGE_ENFORCEMENT = "strictStorageEnforcement";
+export const STRICT_STORAGE_ENFORCEMENT = 'strictStorageEnforcement';
 
 export const ACTIVE_RULES = {
   purpose: {},
@@ -44,34 +44,34 @@ export const ACTIVE_RULES = {
 
 const CONSENT_PATHS = {
   purpose: false,
-  feature: "specialFeatureOptins",
+  feature: 'specialFeatureOptins',
 };
 
-let customizePrebidId = "";
+let customizePrebidId = '';
 
 const TCF2CustomVendor = {
   1: {
-    id: "",
-    name1: "Store and/or access information on a device",
-    name2: "Store and/or access information on a device",
+    id: '',
+    name1: 'Store and/or access information on a device',
+    name2: 'Store and/or access information on a device',
   },
   2: {
-    id: "",
-    name1: "Select basic ads",
-    name2: "Use limited data to select advertising",
+    id: '',
+    name1: 'Select basic ads',
+    name2: 'Use limited data to select advertising',
   },
   7: {
-    id: "",
-    name1: "Measure ad performance",
-    name2: "Measure advertising performance",
+    id: '',
+    name1: 'Measure ad performance',
+    name2: 'Measure advertising performance',
   },
 };
 
 const CONFIGURABLE_RULES = {
   storage: {
-    type: "purpose",
+    type: 'purpose',
     default: {
-      purpose: "storage",
+      purpose: 'storage',
       enforcePurpose: true,
       enforceVendor: true,
       vendorExceptions: [],
@@ -79,20 +79,20 @@ const CONFIGURABLE_RULES = {
     id: 1,
   },
   basicAds: {
-    type: "purpose",
+    type: 'purpose',
     id: 2,
     default: {
-      purpose: "basicAds",
+      purpose: 'basicAds',
       enforcePurpose: true,
       enforceVendor: true,
       vendorExceptions: [],
     },
   },
   personalizedAds: {
-    type: "purpose",
+    type: 'purpose',
     id: 4,
     default: {
-      purpose: "personalizedAds",
+      purpose: 'personalizedAds',
       enforcePurpose: true,
       enforceVendor: true,
       vendorExceptions: [],
@@ -100,20 +100,20 @@ const CONFIGURABLE_RULES = {
     },
   },
   measurement: {
-    type: "purpose",
+    type: 'purpose',
     id: 7,
     default: {
-      purpose: "measurement",
+      purpose: 'measurement',
       enforcePurpose: true,
       enforceVendor: true,
       vendorExceptions: [],
     },
   },
   transmitPreciseGeo: {
-    type: "feature",
+    type: 'feature',
     id: 1,
     default: {
-      purpose: "transmitPreciseGeo",
+      purpose: 'transmitPreciseGeo',
       enforcePurpose: true,
       enforceVendor: true,
       vendorExceptions: [],
@@ -138,14 +138,14 @@ const GVLID_LOOKUP_PRIORITY = [
   MODULE_TYPE_RTD,
 ];
 
-const RULE_NAME = "TCF2";
+const RULE_NAME = 'TCF2';
 const RULE_HANDLES = [];
 
 // in JS we do not have access to the GVL; assume that everyone declares legitimate interest for basic ads
 const LI_PURPOSES = [2];
 const PUBLISHER_LI_PURPOSES = [2, 7, 9, 10];
 
-declare module "../src/config" {
+declare module '../src/config' {
   interface Config {
     /**
      * Map from module name to that module's GVL ID. This overrides the GVL ID provided
@@ -160,7 +160,7 @@ declare module "../src/config" {
 export function getGvlid(moduleType, moduleName, fallbackFn) {
   if (moduleName) {
     // Check user defined GVL Mapping in pbjs.setConfig()
-    const gvlMapping = config.getConfig("gvlMapping");
+    const gvlMapping = config.getConfig('gvlMapping');
 
     // Return GVL ID from user defined gvlMapping
     if (gvlMapping && gvlMapping[moduleName]) {
@@ -199,7 +199,7 @@ export function getGvlid(moduleType, moduleName, fallbackFn) {
 export function getGvlidFromAnalyticsAdapter(code, config) {
   const adapter = adapterManager.getAnalyticsAdapter(code);
   return ((gvlid) => {
-    if (typeof gvlid !== "function") return gvlid;
+    if (typeof gvlid !== 'function') return gvlid;
     try {
       return gvlid.call(adapter.adapter, config);
     } catch (e) {
@@ -216,7 +216,7 @@ export function shouldEnforce(consentData, purpose, name) {
     // `setConfig({consentManagement})`
     logWarn(
       `Attempting operation that requires purpose ${purpose} consent while consent data is not available${
-        name ? ` (module: ${name})` : ""
+        name ? ` (module: ${name})` : ''
       }. Assuming no consent was given.`
     );
     return true;
@@ -228,9 +228,9 @@ function getCustomVendorPurposeId(customVendorConsents, purposeName) {
   try {
     return customVendorConsents.consentedPurposes.filter(
       (consentedPurpose) => consentedPurpose.name == purposeName
-    )[0]["_id"];
+    )[0]['_id'];
   } catch (e) {
-    return "";
+    return '';
   }
 }
 
@@ -278,8 +278,8 @@ function getConsent(consentData, type, purposeNo, gvlId) {
   } else {
     const [path, liPurposes] =
       gvlId === VENDORLESS_GVLID
-        ? ["publisher", PUBLISHER_LI_PURPOSES]
-        : ["purpose", LI_PURPOSES];
+        ? ['publisher', PUBLISHER_LI_PURPOSES]
+        : ['purpose', LI_PURPOSES];
     purpose = getConsentOrLI(
       consentData,
       path,
@@ -291,7 +291,7 @@ function getConsent(consentData, type, purposeNo, gvlId) {
     purpose,
     vendor: getConsentOrLI(
       consentData,
-      "vendor",
+      'vendor',
       gvlId,
       LI_PURPOSES.includes(purposeNo)
     ),
@@ -422,7 +422,7 @@ export const transmitEidsRule = exceptPrebidModules(
         }
         const { purpose, vendor } = getConsent(
           consentData,
-          "purpose",
+          'purpose',
           pno,
           gvlId
         );
@@ -437,7 +437,7 @@ export const transmitEidsRule = exceptPrebidModules(
       return false;
     }
 
-    const defaultBehavior = gdprRule("2-10", check2to10Consent, eidsBlocked);
+    const defaultBehavior = gdprRule('2-10', check2to10Consent, eidsBlocked);
     const p4Behavior = singlePurposeGdprRule(4, eidsBlocked);
     return function (...args) {
       const fn = ACTIVE_RULES.purpose[4]?.eidsRequireP4Consent
@@ -449,14 +449,14 @@ export const transmitEidsRule = exceptPrebidModules(
 );
 
 export const transmitPreciseGeoRule = gdprRule(
-  "Special Feature 1",
+  'Special Feature 1',
   (cd, modName, gvlId) =>
     validateRules(ACTIVE_RULES.feature[1], cd, modName, gvlId),
   geoBlocked
 );
 
 /**
- * Compiles the TCF2.0 enforcement results into an object, which is emitted as an event payload to "tcf2Enforcement" event.
+ * Compiles the TCF2.0 enforcement results into an object, which is emitted as an event payload to 'tcf2Enforcement' event.
  */
 function emitTCF2FinalResults() {
   // remove null and duplicate values
@@ -514,7 +514,7 @@ type TCFControlRule = {
   eidsRequireP4Consent?: boolean;
 };
 
-declare module "../src/consentHandler" {
+declare module '../src/consentHandler' {
   interface ConsentManagementConfig {
     /**
      * If false (the default), allows some use of storage regardless of purpose 1 consent.
@@ -522,7 +522,7 @@ declare module "../src/consentHandler" {
     [STRICT_STORAGE_ENFORCEMENT]?: boolean;
   }
 }
-declare module "./consentManagementTcf" {
+declare module './consentManagementTcf' {
   interface TCFConfig {
     rules?: TCFControlRule[];
   }
@@ -534,15 +534,15 @@ declare module "./consentManagementTcf" {
  */
 export function setEnforcementConfig(config) {
   let rules: Record<keyof typeof CONFIGURABLE_RULES, TCFControlRule> =
-    deepAccess(config, "gdpr.rules");
+    deepAccess(config, 'gdpr.rules');
   if (!rules) {
-    logWarn("TCF2: enforcing P1 and P2 by default");
+    logWarn('TCF2: enforcing P1 and P2 by default');
   }
   rules = Object.fromEntries(
     ((rules as any) || []).map((r) => [r.purpose, r])
   ) as any;
   strictStorageEnforcement = !!deepAccess(config, STRICT_STORAGE_ENFORCEMENT);
-  customizePrebidId = deepAccess(config, "gdpr.customizePrebidId");
+  customizePrebidId = deepAccess(config, 'gdpr.customizePrebidId');
 
   Object.entries(CONFIGURABLE_RULES).forEach(([name, opts]) => {
     ACTIVE_RULES[opts.type][opts.id] = rules[name] ?? opts.default;
@@ -638,6 +638,6 @@ export function uninstall() {
   hooksAdded = false;
 }
 
-config.getConfig("consentManagement", (config) =>
+config.getConfig('consentManagement', (config) =>
   setEnforcementConfig(config.consentManagement)
 );
