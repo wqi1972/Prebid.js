@@ -4,7 +4,7 @@
 
 import {deepAccess, logError, logWarn} from '../src/utils.js';
 import {config} from '../src/config.js';
-import adapterManager, { gdprDataHandler} from '../src/adapterManager.js';
+import adapterManager, {gdprDataHandler} from '../src/adapterManager.js';
 import * as events from '../src/events.js';
 import {EVENTS} from '../src/constants.js';
 import {GDPR_GVLIDS, VENDORLESS_GVLID} from '../src/consentHandler.js';
@@ -18,7 +18,7 @@ import {
 import {
   ACTIVITY_PARAM_ANL_CONFIG,
   ACTIVITY_PARAM_COMPONENT_NAME,
-  ACTIVITY_PARAM_COMPONENT_TYPE,
+  ACTIVITY_PARAM_COMPONENT_TYPE
 } from '../src/activities/params.js';
 import {registerActivityControl} from '../src/activities/rules.js';
 import {
@@ -76,7 +76,7 @@ const CONFIGURABLE_RULES = {
       enforceVendor: true,
       vendorExceptions: []
     },
-    id: 1
+    id: 1,
   },
   basicAds: {
     type: 'purpose',
@@ -118,7 +118,7 @@ const CONFIGURABLE_RULES = {
       enforceVendor: true,
       vendorExceptions: []
     }
-  }
+  },
 } as const;
 
 const storageBlocked = new Set();
@@ -268,12 +268,7 @@ function getConsent(consentData, type, purposeNo, gvlId) {
     const [path, liPurposes] = gvlId === VENDORLESS_GVLID
       ? ['publisher', PUBLISHER_LI_PURPOSES]
       : ['purpose', LI_PURPOSES];
-    purpose = getConsentOrLI(
-      consentData,
-      path,
-      purposeNo,
-      liPurposes.includes(purposeNo)
-    );
+    purpose = getConsentOrLI(consentData, path, purposeNo, liPurposes.includes(purposeNo));
   }
   return {
     purpose,
@@ -375,12 +370,7 @@ export const transmitEidsRule = exceptPrebidModules((() => {
   };
 })());
 
-export const transmitPreciseGeoRule = gdprRule(
-  'Special Feature 1',
-  (cd, modName, gvlId) =>
-    validateRules(ACTIVE_RULES.feature[1], cd, modName, gvlId),
-  geoBlocked
-);
+export const transmitPreciseGeoRule = gdprRule('Special Feature 1', (cd, modName, gvlId) => validateRules(ACTIVE_RULES.feature[1], cd, modName, gvlId), geoBlocked);
 
 /**
  * Compiles the TCF2.0 enforcement results into an object, which is emitted as an event payload to "tcf2Enforcement" event.
@@ -399,6 +389,7 @@ function emitTCF2FinalResults() {
     geoBlocked: formatSet(geoBlocked)
   };
 
+  events.emit(EVENTS.TCF2_ENFORCEMENT, tcf2FinalResults);
   [storageBlocked, biddersBlocked, analyticsBlocked, ufpdBlocked, eidsBlocked, geoBlocked].forEach(el => el.clear());
 }
 
