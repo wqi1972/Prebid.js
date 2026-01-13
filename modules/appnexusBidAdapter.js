@@ -78,7 +78,7 @@ const VIDEO_MAPPING = {
     'accompanying_content_pre_roll': 8,
     'accompanying_content_mid_roll': 9,
     'accompanying_content_post_roll': 10
-  },
+  }
 };
 const NATIVE_MAPPING = {
   body: 'description',
@@ -139,8 +139,7 @@ export const spec = {
   isBidRequestValid: function (bid) {
     return !!(
       (bid.params.placementId || bid.params.placement_id) ||
-      (bid.params.member && (bid.params.invCode || bid.params.inv_code))
-    );
+      (bid.params.member && (bid.params.invCode || bid.params.inv_code)));
   },
 
   /**
@@ -329,12 +328,12 @@ export const spec = {
       payload.privacy = {
         gpp: bidderRequest.gppConsent.gppString,
         gpp_sid: bidderRequest.gppConsent.applicableSections
-      };
+      }
     } else if (bidderRequest?.ortb2?.regs?.gpp) {
       payload.privacy = {
         gpp: bidderRequest.ortb2.regs.gpp,
         gpp_sid: bidderRequest.ortb2.regs.gpp_sid
-      };
+      }
     }
 
     if (bidderRequest && bidderRequest.refererInfo) {
@@ -613,7 +612,7 @@ function newBid(serverBid, rtbBid, bidderRequest) {
       nodes: [{
         bsid: rtbBid.buyer_member_id.toString()
       }]};
-    };
+    }
 
     return dchain;
   }
