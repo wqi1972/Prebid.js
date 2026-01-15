@@ -7,7 +7,6 @@ import {
   logInfo,
   logMessage,
   logWarn,
-  logDetails,
   parseUrl,
   timestamp
 } from './utils.js';
@@ -290,7 +289,6 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
     const bidRequests = metrics.measureTime('requestBids.makeRequests',
       () => adapterManager.makeBidRequests(_adUnits, _auctionStart, _auctionId, _timeout, _labels, ortb2Fragments, metrics));
     logInfo(`Bids Requested for Auction with id: ${_auctionId}`, bidRequests);
-    logDetails(JSON.stringify(bidRequests, null, 4));
 
     metrics.checkpoint('callBids')
 
@@ -350,8 +348,6 @@ export function newAuction({adUnits, adUnitCodes, callback, cbTimeout, labels, a
             }
           }
         }, _timeout, onTimelyResponse, ortb2Fragments);
-        
-        startAuctionTimer();
         requestsDone.resolve();
       }
     };
@@ -514,7 +510,7 @@ export function auctionCallbacks(auctionDone, auctionInstance, {index = auctionM
       if ((FEATURES.VIDEO && bidResponse.mediaType === VIDEO) || (FEATURES.AUDIO && bidResponse.mediaType === AUDIO)) {
         tryAddVideoAudioBid(auctionInstance, bidResponse, done);
       } else {
-        if (FEATURES.NATIVE && isNativeResponse(bidResponse) && !config.getConfig("targetingControls.skipNativeTargeting")) {
+        if (FEATURES.NATIVE && isNativeResponse(bidResponse)) {
           setNativeResponseProperties(bidResponse, index.getAdUnit(bidResponse));
         }
         addBidToAuction(auctionInstance, bidResponse);

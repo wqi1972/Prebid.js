@@ -280,10 +280,6 @@ export function newTargeting(auctionManager) {
         allowedKeys = allowedKeys || defaultKeys as any;
       }
 
-      if (config.getConfig("targetingControls.allowAllTargetingKeys")) {
-        allowedKeys = Object.keys(Object.assign({}, TARGETING_KEYS)) as any;
-      }
-
       if (Array.isArray(allowedKeys) && allowedKeys.length > 0) {
         targeting = getAllowedTargetingKeyValues(targeting, allowedKeys);
       }

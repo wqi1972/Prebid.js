@@ -1,5 +1,4 @@
 import {
-  logDetails,
   createTrackPixelHtml,
   deepAccess,
   deepClone,
@@ -423,9 +422,6 @@ export const spec = {
    */
   interpretResponse: function (serverResponse, { bidderRequest }) {
     serverResponse = serverResponse.body;
-    logDetails('interpretResponse for: ' + bidderRequest.bidderCode);
-    logDetails(bidderRequest);
-    logDetails(serverResponse);
     const bids = [];
     if (!serverResponse || serverResponse.error) {
       let errorMessage = `in response for ${bidderRequest.bidderCode} adapter`;
@@ -447,8 +443,6 @@ export const spec = {
         }
       });
     }
-
-    logDetails(bids);
 
     if (serverResponse.debug && serverResponse.debug.debug_info) {
       const debugHeader = 'AppNexus Debug Auction for Prebid\n\n'
@@ -575,12 +569,6 @@ function newBid(serverBid, rtbBid, bidderRequest) {
     cpm: rtbBid.cpm,
     creativeId: rtbBid.creative_id,
     dealId: rtbBid.deal_id,
-    dealPriority: rtbBid.deal_priority,
-    advertiserId: rtbBid.advertiser_id,
-    brandCategoryId: rtbBid.brand_category_id,
-    buyerMemberId: rtbBid.buyer_member_id,
-    mediaTypeId: rtbBid.media_type_id,
-    mediaSubtypeId: rtbBid.media_subtype_id,
     currency: rtbBid.publisher_currency_codename || 'USD',
     netRevenue: true,
     ttl: 300,
