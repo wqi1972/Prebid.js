@@ -146,7 +146,7 @@ class GdprConsentHandler extends ConsentHandler<ConsentDataFor<typeof CONSENT_GD
       return {
         gdprApplies: consentData.gdprApplies as boolean,
         consentStringSize: isStr(consentData.vendorData.tcString)
-          ? consentData.vendorData.tcString.length
+          ? (consentData.vendorData.tcString as string).length
           : 0,
         generatedAt: this.generatedTime,
         apiVersion: consentData.apiVersion,
