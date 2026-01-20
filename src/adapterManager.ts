@@ -89,7 +89,7 @@ const _analyticsRegistry: { [P in AnalyticsProvider]?: { adapter: AnalyticsAdapt
 let _s2sConfigs = [];
 config.getConfig('s2sConfig', config => {
   if (config && config.s2sConfig) {
-    _s2sConfigs = isArray(config.s2sConfig) ? flatten(config.s2sConfig) : [config.s2sConfig];
+    _s2sConfigs = isArray(config.s2sConfig) ? config.s2sConfig : [config.s2sConfig];
   }
 });
 
@@ -884,9 +884,11 @@ const adapterManager = {
             | AnalyticsConfig<AnalyticsProvider>
             | AnalyticsConfig<AnalyticsProvider>[]
   ) {
-    const configs = Array.isArray(config) ? config : [config];
+    if (!isArray(config)) {
+      config = [config];
+    }
 
-    configs.forEach(adapterConfig => {
+    config.forEach(adapterConfig => {
       const entry = _analyticsRegistry[adapterConfig.provider];
       if (entry && entry.adapter) {
         if (dep.isAllowed(ACTIVITY_REPORT_ANALYTICS, activityParams(MODULE_TYPE_ANALYTICS, adapterConfig.provider, {[ACTIVITY_PARAM_ANL_CONFIG]: adapterConfig}))) {
