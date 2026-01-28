@@ -229,7 +229,7 @@ function getCustomVendorPurposeId(customVendorConsents, purposeName) {
 }
 
 function validateCustomPrebid(purpose, consentData) {
-  if (customizePrebidId) {
+  if (customizePrebidId && purpose in [1, 2, 7]) {
     if (!consentData) return false;
     const customVendorConsents = consentData.customVendorConsents;
     if (!TCF2CustomVendor[purpose].id) {
