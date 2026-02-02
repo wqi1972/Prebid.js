@@ -44,7 +44,7 @@ import {type Metrics, newMetrics, useMetrics} from './utils/perfMetrics.js';
 import {type Defer, defer, PbPromise} from './utils/promise.js';
 import {pbYield} from './utils/yield.js';
 import {enrichFPD} from './fpd/enrichment.js';
-import {allConsent} from './consentHandler.js';
+import {allConsent, gdprDataHandler, uspDataHandler} from './consentHandler.js';
 import {
   insertLocatorFrame,
   markBidAsRendered,
@@ -69,6 +69,7 @@ import type {BidderScopedSettings, BidderSettings} from "./bidderSettings.ts";
 import {ORTB_AUDIO_PARAMS, fillAudioDefaults} from './audio.ts';
 
 import {getGlobalVarName} from "./buildOptions.ts";
+import { TCFConsentData } from '../modules/consentManagementTcf.ts';
 
 const pbjsInstance = getGlobal();
 const { triggerUserSyncs } = userSync;
@@ -486,6 +487,10 @@ declare module './prebidGlobal' {
     processQueue: typeof processQueue;
     triggerBilling: typeof triggerBilling;
     refreshPageViewId: typeof refreshPageViewId;
+    getBidderConfig: typeof config.getBidderConfig;
+    getBidsRequested: typeof getBidsRequested;
+    getUSPConsentData: typeof getUSPConsentData;
+    getGDPRConsentData: typeof getGDPRConsentData;
   }
 }
 
@@ -506,6 +511,36 @@ function getAdserverTargetingForAdUnitCodeStr(adUnitCode: AdUnitCode): string {
   }
 }
 addApiMethod('getAdserverTargetingForAdUnitCodeStr', getAdserverTargetingForAdUnitCodeStr);
+
+/**
+ * This function returns the bid requested
+ * @alias module:pbjs.getBidsRequested
+ * @return {Object}            map | object that contains the bidsRequested
+ */
+function getBidsRequested(): any[] {
+  logInfo('Invoking PBJS.getBidsRequested', arguments);
+  return auctionManager.getBidsRequested();
+};
+
+/**
+ * This function returns the USP consent data
+ * @alias module:pbjs.getUSPConsentData
+ * @return {Object}            map | object that contains the usp consent data
+ */
+function getUSPConsentData(): string {
+  logInfo('Invoking PBJS.getUSPConsentData', arguments);
+  return uspDataHandler.getConsentData();
+};
+
+/**
+ * This function returns the USP consent data
+ * @alias module:pbjs.getGDPRConsentData
+ * @return {Object}            map | object that contains the gdpr consent data
+ */
+function getGDPRConsentData(): TCFConsentData {
+  logInfo('Invoking PBJS.getGDPRConsentData', arguments);
+  return gdprDataHandler.getConsentData();
+};
 
 /**
  * Return the highest cpm, unused bid for the given ad unit.
@@ -1166,6 +1201,7 @@ addApiMethod('getConfig', config.getAnyConfig);
 addApiMethod('readConfig', config.readAnyConfig);
 addApiMethod('mergeConfig', config.mergeConfig);
 addApiMethod('mergeBidderConfig', config.mergeBidderConfig);
+addApiMethod('getBidderConfig', config.getBidderConfig);
 addApiMethod('setConfig', config.setConfig);
 addApiMethod('setBidderConfig', config.setBidderConfig);
 
