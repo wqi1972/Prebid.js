@@ -158,7 +158,8 @@
     "iab-native": "^1.0.0",
     "iab-openrtb": "^1.0.1",
     "klona": "^2.0.6",
-    "live-connect-js": "^7.2.0"
+    "live-connect-js": "^7.2.0",
+    "protobufjs": "^5.0.3"
   },
   "optionalDependencies": {
     "fsevents": "^2.3.2"
