@@ -60,6 +60,26 @@ export const ACTIVE_RULES = {
   feature: {}
 };
 
+let customizePrebidId = '';
+
+const TCF2CustomVendor = {
+  1: {
+    id: '',
+    name1: 'Store and/or access information on a device',
+    name2: 'Store and/or access information on a device'
+  },
+  2: {
+    id: '',
+    name1: 'Select basic ads',
+    name2: 'Use limited data to select advertising'
+  },
+  7: {
+    id: '',
+    name1: 'Measure ad performance',
+    name2: 'Measure advertising performance'
+  },
+};
+
 const CONFIGURABLE_RULES = {
   storage: {
     type: 'purpose',
@@ -258,6 +278,43 @@ export function shouldEnforce(consentData, purpose, name) {
   return consentData && consentData.gdprApplies;
 }
 
+function getCustomVendorPurposeId(customVendorConsents, purposeName) {
+  try {
+    return customVendorConsents.consentedPurposes.filter(
+      (consentedPurpose) => consentedPurpose.name === purposeName
+    )[0]['_id'];
+  } catch (e) {
+    return '';
+  }
+}
+
+function validateCustomPrebid(purpose, consentData) {
+  if (customizePrebidId && [1, 2, 7].includes(purpose)) {
+    if (!consentData) return false;
+    const customVendorConsents = consentData.customVendorConsents;
+    if (!TCF2CustomVendor[purpose].id) {
+      let customVendorPurposeId = getCustomVendorPurposeId(
+        customVendorConsents,
+        TCF2CustomVendor[purpose].name1
+      );
+      if (!customVendorPurposeId) {
+        customVendorPurposeId = getCustomVendorPurposeId(
+          customVendorConsents,
+          TCF2CustomVendor[purpose].name2
+        );
+      }
+      TCF2CustomVendor[purpose].id = customVendorPurposeId;
+    }
+    const purposeId = TCF2CustomVendor[purpose].id;
+    return !!deepAccess(
+      customVendorConsents,
+      `grants.${customizePrebidId}.purposeGrants.${purposeId}`
+    );
+  } else {
+    return true;
+  }
+}
+
 /**
  * This function takes in a rule and consentData and validates against the consentData provided. Depending on what it returns,
  * the caller may decide to suppress a TCF-sensitive activity.
@@ -312,6 +369,10 @@ function gdprRule(purposeNo, checkConsent, blocked = null, gvlidFallback: any = 
             ? { allow: false, reason: `no legal basis for GVL ID(s) ${denied.join(', ')}` }
             : { allow: false };
         }
+      }
+      if (!validateCustomPrebid(purposeNo, consentData)) {
+        blocked && blocked.add(modName);
+        return { allow: false };
       }
     }
   };
@@ -475,6 +536,7 @@ export function setEnforcementConfig(config) {
   rules = Object.fromEntries((rules as any || []).map(r => [r.purpose, r])) as any;
   strictStorageEnforcement = !!deepAccess(config, STRICT_STORAGE_ENFORCEMENT);
   setDefaultPurposeDeclaration(Object.assign({}, NO_PURPOSE_DECLARATION, config?.gdpr?.defaultLegalBasis ?? DEFAULT_PURPOSE_DECLARATION));
+  customizePrebidId = deepAccess(config, 'gdpr.customizePrebidId');
 
   Object.entries(CONFIGURABLE_RULES).forEach(([name, opts]) => {
     ACTIVE_RULES[opts.type][opts.id] = rules[name] ?? opts.default;

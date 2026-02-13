@@ -27,12 +27,15 @@
   },
   "include": [
     "./**/*.ts",
+    "./src/**/*.js",
+    "./libraries/**/*.js"
   ],
   "exclude": [
     "./.cache/**/*", // tsc's own output; the `include` above would otherwise feed it back in
     "./dist/**/*",
     "./build/**/*",
     "./node_modules/**/*",
+    "./test/**/*",
     "integrationExamples/**/*"
   ]
 }

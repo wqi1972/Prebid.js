@@ -170,7 +170,8 @@
     "iab-openrtb": "^2.1.0",
     "klona": "^2.0.6",
     "live-connect-js": "^7.2.0",
-    "whatwg-fetch": "^3.6.20"
+    "whatwg-fetch": "^3.6.20",
+    "protobufjs": "^5.0.3"
   },
   "optionalDependencies": {
     "fsevents": "^2.3.2"

@@ -63,11 +63,13 @@ declare module '../src/consentHandler' {
  */
 function lookupIabConsent(setProvisionalConsent, cmp) {
   return new Promise<void>((resolve, reject) => {
+    let customVendorConsents = null;
+
     function cmpResponseCallback(tcfData, success) {
       logInfo('Received a response from CMP', tcfData);
       if (success) {
         try {
-          setProvisionalConsent(parseConsentData(tcfData));
+          setProvisionalConsent(parseConsentData(tcfData, customVendorConsents));
         } catch (e) {
         }
 
@@ -76,7 +78,7 @@ function lookupIabConsent(setProvisionalConsent, cmp) {
             if (tcfData.listenerId !== null && tcfData.listenerId !== undefined) {
               tcfCmpEventManager?.setCmpListenerId(tcfData.listenerId);
             }
-            gdprDataHandler.setConsentData(parseConsentData(tcfData));
+            gdprDataHandler.setConsentData(parseConsentData(tcfData, customVendorConsents));
             resolve();
           } catch (e) {
             reject(e);
@@ -85,6 +87,13 @@ function lookupIabConsent(setProvisionalConsent, cmp) {
       } else {
         reject(Error('CMP unable to register callback function.  Please check CMP setup.'));
       }
+    }
+
+    function addEventListenerToCmp() {
+      cmp({
+        command: 'addEventListener',
+        callback: cmpResponseCallback
+      });
     }
 
     if ((cmp as any).isDirect) {
@@ -99,14 +108,21 @@ function lookupIabConsent(setProvisionalConsent, cmp) {
     }
     tcfCmpEventManager.setCmpApi(cmp);
 
+    // Attempt to fetch custom vendor consents first (CMP-specific command)
     cmp({
-      command: 'addEventListener',
-      callback: cmpResponseCallback
+      command: 'getCustomVendorConsents',
+      callback: (customConsents, success) => {
+        if (success && customConsents) {
+          logInfo('Received custom vendor consents from CMP', customConsents);
+          customVendorConsents = customConsents;
+        }
+        addEventListenerToCmp();
+      }
     });
   });
 }
 
-function parseConsentData(consentObject): TCFConsentData {
+function parseConsentData(consentObject, customVendorConsents = null): TCFConsentData {
   function checkData() {
     // if CMP does not respond with a gdprApplies boolean, use defaultGdprScope (gdprScope)
     const gdprApplies = consentObject && typeof consentObject.gdprApplies === 'boolean' ? consentObject.gdprApplies : gdprScope;
@@ -120,16 +136,17 @@ function parseConsentData(consentObject): TCFConsentData {
   if (checkData()) {
     throw Object.assign(new Error(`CMP returned unexpected value during lookup process.`), { args: [consentObject] });
   } else {
-    return toConsentData(consentObject);
+    return toConsentData(consentObject, customVendorConsents);
   }
 }
 
-function toConsentData(cmpConsentObject) {
+function toConsentData(cmpConsentObject, customVendorConsents) {
   const consentData: TCFConsentData = {
     consentString: (cmpConsentObject) ? cmpConsentObject.tcString : undefined,
     vendorData: (cmpConsentObject) || undefined,
     gdprApplies: cmpConsentObject && typeof cmpConsentObject.gdprApplies === 'boolean' ? cmpConsentObject.gdprApplies : gdprScope,
-    apiVersion: CMP_VERSION
+    apiVersion: CMP_VERSION,
+    customVendorConsents
   };
   if (cmpConsentObject && cmpConsentObject.addtlConsent && isStr(cmpConsentObject.addtlConsent)) {
     consentData.addtlConsent = cmpConsentObject.addtlConsent;
@@ -160,7 +177,7 @@ const parseConfig = configParser({
   consentDataHandler: gdprDataHandler,
   cmpHandlers: cmpCallMap,
   parseConsentData,
-  getNullConsent: () => toConsentData(null),
+  getNullConsent: () => toConsentData(null, null),
   cmpEventCleanup: removeCmpListener
 } as any);
 
