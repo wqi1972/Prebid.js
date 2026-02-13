@@ -19,11 +19,14 @@
   },
   "include": [
     "./**/*.ts",
+    "./src/**/*.js",
+    "./libraries/**/*.js"
   ],
   "exclude": [
     "./dist/**/*",
     "./build/**/*",
     "./node_modules/**/*",
+    "./test/**/*",
     "integrationExamples/**/*"
   ]
 }

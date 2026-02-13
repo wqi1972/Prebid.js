@@ -26,6 +26,10 @@ export type TCFConsentData = {
    * @see https://support.google.com/admanager/answer/9681920?hl=en
    */
   addtlConsent?: `${number}~${string}~${string}`;
+  /**
+   * Custom vendor consents, if provided by the CMP.
+   */
+  customVendorConsents?: Record<string, boolean>;
 };
 
 export type PurposeDeclarations = {
