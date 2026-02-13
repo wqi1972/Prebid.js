@@ -542,6 +542,10 @@ function getGDPRConsentData(): TCFConsentData {
   return gdprDataHandler.getConsentData();
 };
 
+addApiMethod('getBidsRequested', getBidsRequested);
+addApiMethod('getUSPConsentData', getUSPConsentData);
+addApiMethod('getGDPRConsentData', getGDPRConsentData);
+
 /**
  * Return the highest cpm, unused bid for the given ad unit.
  * @param adUnitCode
