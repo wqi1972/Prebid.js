@@ -1,8 +1,8 @@
 import ProtoBuf from "protobufjs";
-//const protoSpec = require('./log-prebid-events.json');
-const protoSpecNewsIQ = require("./log-prebid-events-newsiq.json");
 import { ajax, debounce } from "./utils";
 import { detectDeviceType } from "./device-detection";
+//const protoSpec = require('./log-prebid-events.json');
+const protoSpecNewsIQ = require("./log-prebid-events-newsiq.json");
 
 //const Builder = ProtoBuf.loadJson(protoSpec);
 //const Analytics = Builder.build('LogPrebidEvents');
@@ -16,6 +16,10 @@ const AuctionNewsIQ = AnalyticsNewsIQ.Auction;
 let NewsIQUrlProduction = "https://log.ncaudienceexchange.com/pb/"; // production analytics end point
 let NewsIQUrlTest = "https://newscorp-newsiq-dev.appspot.com/pb/"; // test analytics end point
 let memberId = undefined;
+// When true, each bid request carries an `eids` param listing the user ID
+// sources (EID `source` values) the bidder received. Only the source names
+// are sent, never the identifiers. Off by default.
+let includeUserIds = false;
 const LIMIT = 100;
 export const sendBatch = debounce(send, LIMIT);
 
@@ -27,6 +31,34 @@ export function setEndPoint(config) {
   if (config && config.options && config.options.memberId) {
     memberId = config.options.memberId;
   }
+  includeUserIds = !!(config && config.options && config.options.includeUserIds === true);
+}
+
+// Value of the `eids` param when the option is on but the bidder got no IDs,
+// so "no user ID" can be told apart from "option off" (param absent).
+export const NO_EIDS = "none";
+
+/**
+ * Sorted, de-duplicated EID sources a bid request carries, joined with ",",
+ * e.g. "adserver.org,liveramp.com,uidapi.com". NO_EIDS when there are none.
+ * Identifier values are never read into the result.
+ */
+export function getEidSources(bid, bidderRequest) {
+  let eids = bid && bid.userIdAsEids;
+  if (!Array.isArray(eids) || eids.length === 0) {
+    eids = bidderRequest?.ortb2?.user?.ext?.eids;
+  }
+  if (!Array.isArray(eids)) {
+    return NO_EIDS;
+  }
+  const sources = [];
+  eids.forEach((eid) => {
+    const source = eid && eid.source;
+    if (isString(source) && source && sources.indexOf(source) === -1) {
+      sources.push(source);
+    }
+  });
+  return sources.length ? sources.sort().join(",") : NO_EIDS;
 }
 
 const STATUS = {
@@ -197,7 +229,7 @@ function addParam(params, key, value) {
   }
 }
 
-function getRequestParams(bid) {
+export function getRequestParams(bid, bidderRequest) {
   const params = getBidParms(bid);
   if (bid.params) {
     Object.keys(bid.params).map((key) => {
@@ -205,6 +237,9 @@ function getRequestParams(bid) {
     });
   }
   addParam(params, "requestId", bid.bidId);
+  if (includeUserIds) {
+    addParam(params, "eids", getEidSources(bid, bidderRequest));
+  }
   return params;
 }
 
@@ -264,7 +299,7 @@ function bidRequested({ data }) {
             request_timestamp: data.start,
           },
         ],
-        params: getRequestParams(bid),
+        params: getRequestParams(bid, data),
       };
     }),
   });
