@@ -20,8 +20,59 @@ let memberId = undefined;
 // sources (EID `source` values) the bidder received. Only the source names
 // are sent, never the identifiers. Off by default.
 let includeUserIds = false;
+// When true, events are held and sent in one request when the page is hidden
+// or unloaded (navigator.sendBeacon), instead of one request per burst of
+// events. A batch is sent early, by XHR, when it nears MAX_BATCH_BYTES or when
+// an auction starts on a new URL (single-page navigation). Off by default.
+let sendOnPageHide = false;
+// sendBeacon refuses payloads over 64 KB (a quota shared by the page's
+// pending beacons), so flush before that.
+export const MAX_BATCH_BYTES = 48 * 1024;
+let queueBytes = 0;
+let pageHideListenersAdded = false;
 const LIMIT = 100;
-export const sendBatch = debounce(send, LIMIT);
+const debouncedSend = debounce(() => send(), LIMIT);
+
+/**
+ * Called after every event. Debounced send by default; with sendOnPageHide,
+ * sends only when the batch is near MAX_BATCH_BYTES.
+ */
+export function sendBatch() {
+  if (!sendOnPageHide) {
+    debouncedSend();
+    return;
+  }
+  if (queueBytes >= MAX_BATCH_BYTES) {
+    send();
+  }
+}
+
+function addPageHideListeners() {
+  if (pageHideListenersAdded) return;
+  pageHideListenersAdded = true;
+  // visibilitychange to hidden is the last event mobile browsers reliably
+  // fire; pagehide covers desktop unloads that skip it.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") send(true);
+  });
+  window.addEventListener("pagehide", () => send(true));
+}
+
+/** Encoded size of one queued message, for the batch size limit. */
+function messageBytes(log) {
+  try {
+    return new AuctionNewsIQ(log).calculate();
+  } catch (e) {
+    return 1024;
+  }
+}
+
+function enqueue(messages) {
+  messages.forEach((log) => {
+    _queue.push(log);
+    if (sendOnPageHide) queueBytes += messageBytes(log);
+  });
+}
 
 export function setEndPoint(config) {
   if (config && config.options && config.options.endpoint) {
@@ -32,6 +83,8 @@ export function setEndPoint(config) {
     memberId = config.options.memberId;
   }
   includeUserIds = !!(config && config.options && config.options.includeUserIds === true);
+  sendOnPageHide = !!(config && config.options && config.options.sendOnPageHide === true);
+  if (sendOnPageHide) addPageHideListeners();
 }
 
 // Value of the `eids` param when the option is on but the bidder got no IDs,
@@ -94,9 +147,11 @@ function isDebugDetail() {
 }
 
 /**
- * Construct analytics payload and send to endpoint
+ * Construct analytics payload and send to endpoint.
+ * @param {boolean} useBeacon Send with navigator.sendBeacon (page is hiding);
+ *   falls back to XHR when it is missing or refuses the payload.
  */
-function send() {
+export function send(useBeacon) {
   /*
   const analytics = Object.assign({}, _topLevel, {
     timestamp: Math.floor(Date.now() / 1000),
@@ -133,13 +188,31 @@ function send() {
   );
 
   //ajax(url, payload, result => logMessage('Sent Prebid Analytics:', result));
-  ajax(NewsIQUrl, payloadNewsIQ, (result) =>
-    logMessage("Sent NewsCorp Prebid Analytics:", result)
-  );
+  let beaconQueued = false;
+  // ajax.js has no beacon transport, and XHR is not reliable while the page
+  // is unloading.
+  // eslint-disable-next-line no-restricted-properties
+  if (useBeacon && navigator.sendBeacon) {
+    try {
+      // eslint-disable-next-line no-restricted-properties
+      beaconQueued = navigator.sendBeacon(
+        NewsIQUrl,
+        new Blob([payloadNewsIQ], { type: "text/plain;charset=utf8" })
+      );
+    } catch (e) {
+      beaconQueued = false;
+    }
+  }
+  if (!beaconQueued) {
+    ajax(NewsIQUrl, payloadNewsIQ, (result) =>
+      logMessage("Sent NewsCorp Prebid Analytics:", result)
+    );
+  }
 
   // TODO: reconcile _sent queue with results from ajax request
   _sent = _sent.concat(_queue);
   _queue = [];
+  queueBytes = 0;
 }
 
 /**
@@ -181,6 +254,10 @@ window.ProgrammaticBidding = window.ProgrammaticBidding || {};
 window.ProgrammaticBidding.device = getDecive();
 
 function auctionInit({ data }) {
+  // A held batch shares one referer_url: send it before a new URL replaces it.
+  if (sendOnPageHide && _queue.length && _topLevel.referer_url !== document.URL) {
+    send();
+  }
   _topLevel = {
     referer_url: document.URL,
     domain: window.ProgrammaticBidding.pageDomain || "unknown",
@@ -189,13 +266,13 @@ function auctionInit({ data }) {
     seller_member_id: data.config ? data.config.memberId : memberId,
   };
 
-  _queue.push({
+  enqueue([{
     auction_init_timestamp: data.timestamp,
     prebid_auction_id: data.auctionId,
     configured_timeout_ms: data.timeout,
     version: pbjs.version,
     msg_type: MSG_TYPE.Auction_Init,
-  });
+  }]);
 }
 
 function getAdUnit(adUnitId) {
@@ -286,7 +363,7 @@ function getResponseParams(bid) {
 }
 
 function bidRequested({ data }) {
-  _queue.push({
+  enqueue([{
     msg_type: MSG_TYPE.Bid_Requested,
     prebid_auction_id: data.auctionId,
     ad_units: data.bids.map((bid) => {
@@ -302,7 +379,7 @@ function bidRequested({ data }) {
         params: getRequestParams(bid, data),
       };
     }),
-  });
+  }]);
 }
 
 function fillResponsePayload(responsePayload, data, statusCode) {
@@ -360,7 +437,7 @@ function bidResponse({ data }) {
   };
   fillResponsePayload(responsePayload, data, STATUS.BID_RECEIVED);
 
-  _queue.push(responsePayload);
+  enqueue([responsePayload]);
 }
 
 function bidWon({ data }) {
@@ -381,7 +458,7 @@ function bidWon({ data }) {
   fillResponsePayload(bidWonPayload, data, STATUS.BID_WON);
 
   // log "bid won" for the winning bid of a placement
-  _queue.push(bidWonPayload);
+  enqueue([bidWonPayload]);
 
   /*
   // get other bids in the auction for the placement and log "bid lost" status code
@@ -410,7 +487,7 @@ function bidWon({ data }) {
 }
 
 function bidTimeout({ data = [] }) {
-  _queue = _queue.concat(
+  enqueue(
     data.map((bid) => {
       return {
         prebid_auction_id: bid.auctionId,
