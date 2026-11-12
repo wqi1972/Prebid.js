@@ -1,16 +1,7 @@
-import ProtoBuf from "protobufjs";
 import { ajax, debounce } from "./utils";
 import { detectDeviceType } from "./device-detection";
-//const protoSpec = require('./log-prebid-events.json');
-const protoSpecNewsIQ = require("./log-prebid-events-newsiq.json");
-
-//const Builder = ProtoBuf.loadJson(protoSpec);
-//const Analytics = Builder.build('LogPrebidEvents');
-//const Auction = Analytics.Auction;
-
-const BuilderNewsIQ = ProtoBuf.loadJson(protoSpecNewsIQ);
-const AnalyticsNewsIQ = BuilderNewsIQ.build("LogPrebidEventsNewsIQ");
-const AuctionNewsIQ = AnalyticsNewsIQ.Auction;
+// Encodes log-prebid-events-newsiq.proto; byte-identical to protobufjs v5.
+import { auctionBytes, encodePayload } from "./encoder.js";
 
 //const url = 'https://rb.adnxs.com/pack?log=log_prebid_events&format=protobuf';
 let NewsIQUrlProduction = "https://log.ncaudienceexchange.com/pb/"; // production analytics end point
@@ -25,6 +16,13 @@ let includeUserIds = false;
 // events. A batch is sent early, by XHR, when it nears MAX_BATCH_BYTES or when
 // an auction starts on a new URL (single-page navigation). Off by default.
 let sendOnPageHide = false;
+// When true, a bid request the bidder answered without a bid is sent as a
+// Bid_No_Bid message (with its response time), so no-bids are counted directly
+// instead of as requests minus responses minus timeouts. Off by default.
+let includeNoBids = false;
+// Bid request ids already sent as timed out: Prebid can still emit noBid for
+// them when the bidder finishes after the auction timeout.
+const timedOutBidIds = new Set();
 // sendBeacon refuses payloads over 64 KB (a quota shared by the page's
 // pending beacons), so flush before that.
 export const MAX_BATCH_BYTES = 48 * 1024;
@@ -61,7 +59,7 @@ function addPageHideListeners() {
 /** Encoded size of one queued message, for the batch size limit. */
 function messageBytes(log) {
   try {
-    return new AuctionNewsIQ(log).calculate();
+    return auctionBytes(log);
   } catch (e) {
     return 1024;
   }
@@ -84,6 +82,7 @@ export function setEndPoint(config) {
   }
   includeUserIds = !!(config && config.options && config.options.includeUserIds === true);
   sendOnPageHide = !!(config && config.options && config.options.sendOnPageHide === true);
+  includeNoBids = !!(config && config.options && config.options.includeNoBids === true);
   if (sendOnPageHide) addPageHideListeners();
 }
 
@@ -129,6 +128,7 @@ const MSG_TYPE = {
   Bid_Timeout: 104,
   Bid_Won: 105,
   Bid_Lost: 106,
+  Bid_No_Bid: 107,
 };
 
 let _topLevel = {};
@@ -161,19 +161,12 @@ export function send(useBeacon) {
   */
   if (_queue.length === 0) return;
 
-  const analytics = Object.assign({}, _topLevel, {
-    timestamp: Math.floor(Date.now() / 1000),
-    auctions: _queue.map((log) => new AuctionNewsIQ(log)),
-  });
-
-  //const payload = new AnalyticsNewsIQ(analytics).toArrayBuffer();
-
   const analyticsNewsIQ = Object.assign({}, _topLevel, {
     timestamp: Date.now(),
-    auctions: _queue.map((log) => new AuctionNewsIQ(log)),
+    auctions: _queue,
   });
 
-  const payloadNewsIQ = new AnalyticsNewsIQ(analyticsNewsIQ).toArrayBuffer();
+  const payloadNewsIQ = encodePayload(analyticsNewsIQ);
 
   let NewsIQUrl = NewsIQUrlProduction;
   if (isDebugDetail()) {
@@ -238,6 +231,10 @@ export function logEvent({ eventType }) {
 
     case "bidTimeout":
       bidTimeout(...arguments);
+      break;
+
+    case "noBid":
+      noBid(...arguments);
       break;
   }
 }
@@ -487,6 +484,7 @@ function bidWon({ data }) {
 }
 
 function bidTimeout({ data = [] }) {
+  data.forEach((bid) => timedOutBidIds.add(bid.bidId));
   enqueue(
     data.map((bid) => {
       return {
@@ -508,4 +506,40 @@ function bidTimeout({ data = [] }) {
       };
     })
   );
+}
+
+/**
+ * A bid request the bidder answered without a bid. Prebid sets
+ * requestTimestamp/responseTimestamp on the request when it records the
+ * no-bid, so the message carries the bidder's response time.
+ */
+function noBid({ data }) {
+  if (!includeNoBids || !data || !data.adUnitCode) {
+    return;
+  }
+  // Already sent as a timeout; a late "no bid" must not count it twice.
+  if (timedOutBidIds.has(data.bidId)) {
+    return;
+  }
+  enqueue([
+    {
+      prebid_auction_id: data.auctionId,
+      msg_type: MSG_TYPE.Bid_No_Bid,
+      ad_units: [
+        {
+          ad_unit_code: data.adUnitCode,
+          bids: [
+            {
+              bid_id: data.bidId,
+              bidder_code: data.bidder,
+              status_code: STATUS.NO_BID,
+              request_timestamp: data.requestTimestamp,
+              response_timestamp: data.responseTimestamp,
+            },
+          ],
+          params: getBidParms(data),
+        },
+      ],
+    },
+  ]);
 }
